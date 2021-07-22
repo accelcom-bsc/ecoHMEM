@@ -1,0 +1,7 @@
+# Memory configuration for allocator posix
+Size 1536 Mbytes
+# Memory configuration for allocator memkind/pmem
+@ /mnt/pmem0 @ /mnt/pmem1
+# Memory configuration for allocator memkind/hbwmalloc
+Size 16384 MBytes
+

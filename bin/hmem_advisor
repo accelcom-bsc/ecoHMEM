@@ -1,0 +1,635 @@
+#! /usr/bin/python
+
+# GPL licensed
+
+
+import sys
+import locale
+import math
+import argparse
+import json
+import numpy as np
+
+locale.setlocale( locale.LC_ALL, 'en_US.UTF-8' )
+
+def parseInputFile(inputFile, rank, rank_statistics):
+    line = inputFile.readline()
+    items = line.split("\t")[1:-1]
+
+    # Remove the string decorators from paraver (if needed)
+    clean_items = []
+    for s in items:
+        if (s.find ("[") == -1):
+            if s.find ("(") != -1 and s.find (")") > s.find ("("):
+                clean_items.append(s[1+s.find("("):s.find(")")])
+            else:
+                clean_items.append(s)
+        else:
+            clean_items.append(s[1+s.find("["):s.find("]")])
+
+    if rank > 0:
+        for i in range(rank): line = inputFile.readline()
+    else:
+        while line != "" and rank_statistics not in line: line = inputFile.readline()
+    if line == "":
+        print("Error, premature EOF")
+        sys.exit(1)
+    weights = line.split("\t")[1:-1]
+    if len(items) != len(weights):
+        print("Error, length mismatch")
+        sys.exit(1)
+    return clean_items, weights
+
+
+def parseAllocInfoFile(fname):
+    col_parsers = {
+        'app': int,
+        'proc': int,
+        'func': int,
+        'alloc_time': long,
+        'free_time': long,
+        'bytes': long,
+        'obj_id': int,
+    }
+
+    with open(fname) as infile:
+        data = json.load(infile)
+    
+    assert 'version' in data and data['version'] == 1
+    
+    colnames = data['fields']
+    dict_allocs = []
+    for a in data['allocs']:
+        assert len(a) == len(colnames)
+        d = {col: col_parsers.get(col, lambda x: x)(v) for col,v in zip(colnames, a)}
+        dict_allocs.append(d)
+
+    data['allocs'] = dict_allocs
+
+    # add a reverse mapping from callstacks to numeric object IDs
+    data['callstacks'] = {cs[1+cs.find("["):cs.find("]")]: int(oid) for oid,cs in data['objects'].iteritems()}
+    return data
+
+
+def parseTimeslotsInfoFile(fname):
+    with open(fname) as infile:
+        data = json.load(infile)
+    
+    assert 'version' in data and data['version'] == 1
+
+    field_idx = {}
+    assert 'field_idx' not in data
+    data['field_idx'] = field_idx
+    for i,f in enumerate(data['fields']):
+        field_idx[f] = i
+    
+    return data
+
+
+def text2bytes(text):
+    if text[-1] >= '0' and text[-1] <= '9':
+        text = text + 'b'
+    mult = text[-1]
+    size = int(text[:-1])
+    if mult not in ("b", "B"):
+        if mult in ("k", "K"):
+            size *= 1024
+        elif mult in ("m", "M"):
+            size *= 1024**2
+        elif mult in ("gitem", "G"):
+            size *= 1024**3
+        elif mult in ("t", "T"):
+            size *= 1024**4
+        else:
+            print("Error in size modifier")
+            sys.exit(1)
+    return size
+
+
+def pack_precise(items, mems, i):
+    def itemSize(item): return item.size
+    def itemRealSize(item): return item.realsize
+
+    sizeLimit = mems[i].size
+    getSize = itemSize
+    P = {}
+    for nItems in range(len(items)+1):
+        for lim in range(sizeLimit+1):
+            if nItems == 0:
+                P[nItems,lim] = 0
+            elif getSize(items[nItems-1]) > lim:
+                P[nItems,lim] = P[nItems-1,lim]
+            else:
+                P[nItems,lim] = max(P[nItems-1,lim],
+                                    P[nItems-1,lim-getSize(items[nItems-1])] +
+                                    items[nItems-1].value[i])
+
+    L = []
+    nItems = len(items)
+    lim = sizeLimit
+    while nItems > 0:
+        nItems -= 1
+        if P[nItems+1,lim] != P[nItems,lim]:
+            L.append(items[nItems])
+            lim -= getSize(items[nItems])
+
+    return L
+
+
+def pack_greedy(items, mems, i):
+    sizeLimit = mems[i].size
+    items.sort(key=lambda x: x.value[i], reverse = True)
+    L = []
+    for item in items:
+        if item.size <= sizeLimit:
+            L.append(item)
+            sizeLimit -= item.size
+            if sizeLimit == 0: break
+    return L
+
+
+def pack_number(items, mems, i, lim):
+    sizeLimit = mems[i].size
+    L = []
+
+    for item in items:
+        if item.size <= sizeLimit and item.value[i] >= lim:
+            print(item.value, lim)
+            L.append(item)
+            sizeLimit -= item.size
+            if sizeLimit == 0: break
+    return L
+
+
+class memobject:
+    def __init__(self, callstack, loads, stores, size, pagesize, ecu=-1, id=-1):
+        self.callstack = callstack
+        self.loads = loads
+        self.stores = stores
+        self.realsize = size
+        self.size = int(math.ceil(size/float(pagesize)))
+        self.ecu = ecu # EVOP specific,
+        self.id = id # used as unique object ID
+        self.value = 0
+
+
+    def __str__(self):
+        return str(self.ecu) + " " + str(self.loads) + " " + str(self.stores) + " " + str(self.realsize)
+
+    def __eq__(self, other):
+        return self.callstack == other.callstack
+
+    def comment(self):
+        if self.callstack.find (":") == - 1 and self.callstack.find("!") == -1:
+            return "# Static "
+        else:
+            return ""
+
+
+
+class memsystem:
+    def __init__(self, name, load_latency, store_latency, size, allocator, pagesize):
+        self.name = name
+        self.load_latency = load_latency
+        self.store_latency = store_latency
+        self.size = size
+        self.realsize = size
+        self.size = int(math.ceil(size/float(pagesize)))
+        self.allocator = allocator
+
+    def __str__(self):
+        return self.name + " " + str(self.load_latency) + " " + str(self.store_latency) + " " + str(self.realsize)
+
+    def __eq__(self, other):
+        return self.name == other.name
+
+
+def print_distribution(distribution, systems, bytes):
+    for j in range(len(systems)):
+        print("System: ",j, " Objects: ",len(distribution[j]))
+        for item in distribution[j]:
+            print("Id: ",item.id, " Loads: ",item.loads, " Stores: ",item.stores, " Cost:", item.value)
+        print("Occupancy: ", bytes[j] * 100 / systems[j].realsize)
+
+
+def weight_objects(objects, systems, algorithm, metric, worst):
+    if metric == "misses":
+        for item in objects:
+            item.value = [(item.loads + item.stores) / float(item.size)] * (len(systems)-1)
+    elif metric == "latencies":
+        for item in objects:
+            item.value = [0] * (len(systems)-1)
+            for i in range(len(systems)-1):
+                item.value[i] = (item.loads * systems[i+1].load_latency + item.stores * systems[i+1].store_latency) / float(item.size)
+
+    if algorithm.isdigit():
+        tot = 0
+        for item in objects:
+            tot += item.value[0]
+        for item in objects:
+            item.value[0] = item.value[0] * 100 / tot
+
+    # Be bad?
+    if worst:
+        max_value = 0
+        for i in range(len(systems)-1):
+            for item in objects:
+                if item.value[i] > max_value: max_value = item.value[i]
+            max_value += 1
+            for item in objects:
+                item.value[i] = max_value - item.value[i]
+
+
+def get_distribution(objects, systems, algorithm, metric):
+    distribution = [None] * len(systems)
+
+    for i in range(len(systems)-1):
+        if algorithm == "precise":
+            distribution[i] = pack_precise(objects, systems, i)
+        elif algorithm == "greedy":
+            distribution[i] = pack_greedy(objects, systems, i)
+        elif algorithm.isdigit():
+            distribution[i] = pack_number(objects, systems, i, float(algorithm))
+        objects[:] = [item for item in objects if item not in distribution[i]]
+    size = 0
+    for o in objects: size += o.size
+    if size > systems[-1].size:
+        print("Error, doesn't fit")
+        sys.exit(1)
+    distribution[-1] = objects
+
+    for placement in distribution:
+        placement.sort(key=lambda x: x.callstack)
+        
+    return distribution
+
+
+def concurrent_activity_objects(timeslot_info, proc):
+    objs = timeslot_info['procs'][str(proc)]['threads']['1']['objects']
+    field_idx = timeslot_info['field_idx']
+
+    num_bins = max(len(bins) for bins in objs.itervalues())
+
+    def get_bin(bin_list, idx):
+        if len(bin_list) <= idx:
+            return [0,0,0,0,0,0,0,0]
+        return bin_list[idx]
+
+    bins_data = []
+    for i in range(num_bins):
+        def get_field(field):
+            return get_bin(bins, i)[field_idx[field]]
+
+        d = {}
+        d['active_objs'] = [int(oid) for oid,bins in objs.iteritems() if get_field('load_l3_miss') > 0 or get_field('store_l1_miss') > 0]
+        bins_data.append(d)
+
+    threshold = int(max(len(bd['active_objs']) for bd in bins_data) * 0.75)
+    sel_objs = set()
+    for bd in bins_data:
+        if len(bd['active_objs']) >= threshold:
+            sel_objs |= set(bd['active_objs'])
+
+    return sel_objs
+
+
+def fit_extra_objects(distribution, systems, allocs_info, app, proc, conc_activity_objs):
+    def get_obj_id(memobj):
+        if memobj.id != -1:
+            return memobj.id
+        return allocs_info['callstacks'].get(memobj.callstack, -1)
+
+    dram_idx = [i for i,s in enumerate(systems) if s.name == 'DRAM'][0]    
+    selected_oids = [get_obj_id(o) for o in distribution[dram_idx]]
+    
+    num_procs = len(set(a['proc'] for a in allocs_info['allocs']))
+    limit = systems[dram_idx].realsize / float(num_procs)
+    
+    assert len(selected_oids) == len(set(selected_oids)), "dups in selected_oids"
+
+    # Group allocs (of selected app,proc) by object ID, as (timestamp, bytes delta) pairs
+    objs = {}
+    for alloc in allocs_info['allocs']:
+        if alloc['app'] != app or alloc['proc'] != proc:
+            continue
+        # discard allocs with invalid free time
+        if alloc['free_time'] <= alloc['alloc_time']:
+            continue
+        
+        obj_deltas = objs.setdefault(alloc['obj_id'], [])
+
+        obj_deltas.append((alloc['alloc_time'], alloc['bytes']))
+        obj_deltas.append((alloc['free_time'], -1 * alloc['bytes']))
+
+    # Convert lists of (time, bytes delta) to two numpy arrays, sorted by time
+    np_objs = {}
+    for obj_id in sorted(objs):
+        if obj_id < 0:
+            continue
+        
+        # merge deltas that have the same timestamp (realloc frees prev and allocates next in the same timestamp)
+        deltas = {}
+        for time,delta in objs[obj_id]:
+            if time not in deltas:
+                deltas[time] = 0
+            deltas[time] += delta
+
+        sorted_times = list(sorted(deltas.iterkeys()))
+
+        assert obj_id not in np_objs
+        np_objs[obj_id] = {}
+        np_objs[obj_id]['time'] = np.asarray(sorted_times)
+        np_objs[obj_id]['bytes_delta'] = np.asarray([deltas[t] for t in sorted_times])
+
+        # check that byte deltas are balanced
+        assert np_objs[obj_id]['bytes_delta'].sum() == 0
+
+    # merge
+    merged_time = np.asarray([])
+    for o in np_objs.itervalues():
+        merged_time = np.union1d(merged_time, o['time'])
+
+    merged_values = np.zeros((len(np_objs), len(merged_time)))
+
+    for i,oid in enumerate(sorted(np_objs.iterkeys())):
+        o = np_objs[oid]
+        idxs = np.isin(merged_time, o['time']).nonzero()
+        merged_values[i][idxs] = o['bytes_delta']
+
+    #
+
+    obj_ids = list(sorted(np_objs.iterkeys()))
+
+
+    sel_oids_in_objs = [x for x in selected_oids if x in obj_ids]
+    
+    idxs_sel_objs = list(sorted(obj_ids.index(x) for x in sel_oids_in_objs))
+    
+    stacked_values = np.cumsum(merged_values, axis=1) # turn byte-deltas to actual count, per object
+
+    sel_values = stacked_values[idxs_sel_objs][:]
+    total = np.sum(sel_values, axis=0)
+    
+    obj_values = {get_obj_id(o): o.value[0] for objs in distribution for o in objs}
+
+    fits = []
+    dont_fit = []
+    
+    # iterate over remaining objects sorted by descending cost
+    sorted_np_objs = list(sorted(np_objs.iterkeys(), key=lambda x: obj_values.get(x, 0.), reverse=True))
+    # if we have high concurrent activity objects information, put them first
+    if conc_activity_objs is not None:
+        sorted_np_objs = [oid for oid in sorted_np_objs if oid in conc_activity_objs] + [oid for oid in sorted_np_objs if oid not in conc_activity_objs]
+        assert len(sorted_np_objs) == len(np_objs)
+        assert len(sorted_np_objs) == len(set(sorted_np_objs))
+
+    for oid in sorted_np_objs:
+        if oid in selected_oids:
+            continue
+        idx = obj_ids.index(oid)
+
+        new_total = stacked_values[idx] + total
+        if new_total.max() <= limit:
+            fits.append(oid)
+            total = new_total
+        else:
+            dont_fit.append(oid)
+    
+    objs_in_fits = [(memidx, o) for memidx,objs in enumerate(distribution) for o in objs if get_obj_id(o) in fits]
+    for memidx,obj in objs_in_fits:
+        assert memidx != dram_idx
+        distribution[dram_idx].append(obj)
+        distribution[memidx].remove(obj)
+
+
+def main():
+    parser = argparse.ArgumentParser(description='hmem_advisor, a memory object distribution tool for heterogeneous memory systems')
+    #parser.add_argument('mem_config', type=str)
+    #parser.add_argument('accesses_loads', type=argparse.FileType('rU'))
+    #parser.add_argument('sizes', type=argparse.FileType('rU'))
+    parser.add_argument('--mem_config', type=str, required=True)
+    parser.add_argument('--loads', type=argparse.FileType('rU'), required=True)
+    parser.add_argument('--sizes', type=argparse.FileType('rU'), required=True)
+    parser.add_argument('--stores', type=argparse.FileType('rU'))
+    parser.add_argument('--worst', action='store_true', default=False)
+    parser.add_argument('--algo', type=str, default='greedy')
+    parser.add_argument('--metric', type=str, default='latencies', choices=('latencies','misses'))
+    parser.add_argument('--page', type=str, required=False, default="4096b")
+    parser.add_argument('--verbose', action='store_true', default=False)
+    parser.add_argument('--rank', type=int, default=0)
+    parser.add_argument('--rank-statistics', type=str, default="Total")
+    parser.add_argument('--visualizer', action='store_true', default=False)
+    parser.add_argument('--allocs-info')
+    parser.add_argument('--num-ranks', type=int)
+    args = parser.parse_args()
+
+#    if args.timeslots_info and not args.allocs_info:
+#        raise RuntimeError('Using timeslot data requires allocs-info data')
+
+    if args.rank_statistics == 'Average' and not args.num_ranks:
+        raise RuntimeError('For --rank-statistics=Average you also have to specify --num-ranks')
+
+
+    if args.verbose:
+        print("hmem_advisor, a memory object distribution tool for heterogeneous memory systems")
+        print("Copyright (C) 2019, 2020 Barcelona Supercomputing Center (BSC)")
+        print("Author: Antonio J. Pena <antonio.pena@bsc.es>")
+        print("With contributions from Muhammad Owais and Marc Jorda, BSC")
+        print("Based on original 'dmem_advisor' from Antonio J. Pena, Argonne National Laboratory")
+        print()
+
+    objects = []
+    useless = []
+    ignored = []
+    systems = []
+    pagesize = text2bytes(args.page)
+
+    # Mem Config
+    with open(args.mem_config, 'rU') as fmem_config:
+        lines = fmem_config.readlines()
+    
+    for line in lines:
+        if line[-1] == "\n":
+            line = line[:-1]
+        fields = line.split(",")
+        name = fields[0]
+        load_latency = int(fields[1])
+        store_latency = int(fields[2])
+        size = text2bytes(fields[3])
+        if args.rank_statistics == 'Average':
+            size = size / args.num_ranks
+        allocator = fields[4]
+        systems.append(memsystem(name, load_latency, store_latency, size, allocator, pagesize))
+        if name == "DRAM":
+            dram = systems[-1]
+
+    # Sanity check
+    if args.algo not in ("greedy", "precise") and not args.algo.isdigit():
+        print("Algorithm", args.algo, "not supported")
+        sys.exit(1)
+    if args.algo.isdigit() and len(systems) > 2:
+        print("Algorithm", args.algo, "only supported with 2 memory subsystems;", len(systems), "given")
+        sys.exit(1)
+
+    # Input from loads
+    items_loads, weights_loads = parseInputFile(args.loads, args.rank, args.rank_statistics)
+
+    # Input from stores
+    items_stores = []
+    weights_stores = []
+    if args.stores:
+        items_stores, weights_stores = parseInputFile(args.stores, args.rank, args.rank_statistics)
+
+    # Input from sizes
+    items_sizes, sizes = parseInputFile(args.sizes, args.rank, args.rank_statistics)
+
+    # Input from avg. latencies
+    #if args.lats:
+    #    items_latencies, latencies = parseInputFile(args.lats, args.rank, args.rank_statistics)
+
+    # Remove objects with 0-size
+    toremove = []
+    for i,itm in enumerate(items_sizes):
+        if float(sizes[i]) == 0.0:
+            toremove.append(i)
+
+    # Remove in reverse order, otherwise indices get corrupted/broken as they move
+    for i in reversed(toremove):
+        if args.stores:
+            del items_stores[i]
+            del weights_stores[i]
+    #    if args.lats:
+    #        del items_latencies[i]
+    #        del latencies[i]
+        del items_sizes[i]
+        del sizes[i]
+        del items_loads[i]
+        del weights_loads[i]
+
+    check_equal = False
+    if args.stores:
+        check_equal = ( len(items_loads) == len(items_stores) == len(items_sizes) )
+    else:
+        check_equal = len(items_loads) == len(items_sizes)
+    if not check_equal:
+        print("Error: Items are not same across loads,stores,sizes")
+        sys.exit(1)
+
+    # Input from pcf
+    # line = args.pcf.readline()
+    # event_type = 0
+    # translation_dict = {}
+    # while event_type != 32000007:
+    #     while "EVENT_TYPE" not in line: line = args.pcf.readline()
+    #     line = args.pcf.readline()
+    #     event_type = int(line.split()[1])
+    # line = args.pcf.readline()  # "VALUES"
+    # line = args.pcf.readline()
+    # while line[0] != "\n":
+    #     key,val = line.split(None, 1)
+    #     translation_dict[int(key)] = val
+    #     line = args.pcf.readline()
+
+    max_loads = 0
+    max_stores = 0
+    totv_loads = 0
+    totv_stores = 0
+    tot_size = 0
+
+
+    # build object store, not assuming items are sorted across loads, stores, sizes
+    # i.e. items_loads[i] doesn't necessarily correspond to items_sizes[i]
+    # using items in loads data as key across sizes and stores
+    for i in range(len(items_loads)):
+        callstack = items_loads[i]
+        loads = int(float(weights_loads[i]))
+        stores = 0
+        size = 0
+        try:
+            idx = items_sizes.index(items_loads[i])
+            size = int(float(sizes[idx]))
+        except:
+            size = 0
+        if args.stores:
+            try:
+                idx = items_stores.index(items_loads[i])
+                stores = int(float(weights_stores[idx]))
+            except:
+                stores = 0
+        if not callstack == "Unresolved" and callstack.find("Memory object referenced by sampled address") == -1:
+            if (loads > 0 or stores > 0) and size > 0:
+                if loads > max_loads: max_loads = loads
+                if stores > max_stores: max_stores = stores
+                totv_loads += loads
+                totv_stores += stores
+                tot_size += size
+                objects.append(memobject(callstack, loads, stores, size, pagesize))
+            else:
+                useless.append(memobject(callstack, loads, stores, size, pagesize))
+        else:
+            ignored.append(memobject(callstack, loads, stores, size, pagesize))
+
+
+    # Run!
+    weight_objects(objects, systems, args.algo, args.metric, args.worst)
+    distribution = get_distribution(objects, systems, args.algo, args.metric)
+
+
+    if args.allocs_info:
+        process = 10
+        allocs_info = parseAllocInfoFile(args.allocs_info)
+        ca_objs = None
+#        if args.timeslots_info:
+#            timeslots_info = parseTimeslotsInfoFile(args.timeslots_info)
+#            ca_objs = concurrent_activity_objects(timeslots_info, process)
+            
+        fit_extra_objects(distribution, systems, allocs_info, 1, process, ca_objs)
+
+
+    # print output
+    for i in range(len(systems)):
+        size = 0
+        if args.verbose:
+            print("--", systems[i].name, "-", systems[i].realsize, "bytes --")
+
+        if not args.verbose and not args.visualizer:
+            print("# Memory configuration for", systems[i].name, "with size", systems[i].realsize, "bytes")
+            # print("# Memory configuration for", systems[i].name, "with size", systems[i].realsize, "bytes and latency", dram.load_latency/systems[i].load_latency, "times faster than DRAM")
+
+        for mo in distribution[i]:
+            if not args.verbose:
+                if args.visualizer:
+                    print(mo.callstack + ';' + str(mo.realsize) + ';' + str(mo.loads))
+                else:
+                    print(mo.comment() + mo.callstack + " @ " + systems[i].allocator)
+            elif args.stores:
+                print(mo.callstack, "-", mo.loads, "loads -", mo.stores, "stores -", mo.realsize, "bytes", " - cost ", str(mo.value))
+            else:
+                print(mo.callstack, "-", mo.loads, "loads -", mo.realsize, "bytes", " - cost ", str(mo.value))
+            size += mo.realsize
+        if args.verbose:
+            print("--")
+            if not args.stores:
+                print(len(distribution[i]), "objects;", size, "bytes (" + str(size*100./systems[i].realsize) + "%);")
+            else:
+                print(len(distribution[i]), "objects;", size, "bytes (" + str(size*100./systems[i].realsize) + "%);")
+            print
+
+
+    if not args.verbose: sys.exit(0)
+
+    print("-- WHEREVER --")
+    size = 0
+    for mo in useless:
+        if args.stores:
+            print(mo.callstack, "-", mo.loads, "loads -", mo.stores, "stores -", mo.realsize, "bytes")
+        else:
+            print(mo.callstack, "-", mo.loads, "loads -", mo.realsize, "bytes")
+        size += mo.realsize
+    print("--")
+    print(len(useless), "objects;", size, "bytes")
+
+
+if __name__ == '__main__':
+    main()
+

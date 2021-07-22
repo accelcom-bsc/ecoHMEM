@@ -1,0 +1,19 @@
+
+shlex_split() {
+    if [[ $# -ne 2 ]]; then
+        ercho "Error: expected 2 parameters, the string to split and the output array's name"
+        exit 1
+    fi
+
+    local str=$1
+    local -n arr=$2 #ref to caller's array
+
+    OLDIFS=$IFS
+    IFS=$'\n'
+    arr=( $("${HA_PYTHON-python3}" -c 'import shlex; import sys; print("\n".join(shlex.split(sys.argv[1])))' "$str") )
+    IFS=$OLDIFS
+}
+
+ercho() {
+    >&2 echo "$@"
+}
