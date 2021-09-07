@@ -32,7 +32,7 @@ export HA_ADVISOR_EXTRA_ARGS="--rank-statistics=Average --num-ranks=$num_ranks"
 export HA_ADVISOR_MEM_CONFIG="$HA_HOME/mem_confs/advisor_lds-1-5_sts-1-10_${dram_size}.csv"
 export HA_ADVISOR_OUTPUT_FILE=object_dist.locations
 
-export HA_FLEXMALLOC_FALLBACK_ALLOCATOR=pmem/memkind
+export HA_FLEXMALLOC_FALLBACK_ALLOCATOR=memkind/pmem-fsdax
 export HA_FLEXMALLOC_MEM_CONFIG="$HA_HOME/mem_confs/fmconf_${num_ranks}procs_${dram_size}"
 export HA_LOAD_FLEXMALLOC_SCRIPT="$HA_FLEXMALLOC_HOME/bin/flexmalloc.sh"
 

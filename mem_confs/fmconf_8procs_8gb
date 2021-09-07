@@ -1,6 +1,6 @@
 # Memory configuration for allocator posix
 Size 1024 Mbytes
-# Memory configuration for allocator memkind/pmem
+# Memory configuration for allocator memkind/pmem-fsdax
 @ /mnt/pmem0 @ /mnt/pmem1
 # Memory configuration for allocator memkind/hbwmalloc
 Size 16384 MBytes
