@@ -10,13 +10,13 @@
     <counters enabled="yes" />
   </mpi>
 
-  <openmp enabled="no" ompt="no">
+  <openmp enabled="yes" ompt="no">
     <locks enabled="no" />
     <taskloop enabled="no" />
     <counters enabled="yes" />
   </openmp>
 
-  <pthread enabled="no">
+  <pthread enabled="yes">
     <locks enabled="no" />
     <counters enabled="yes" />
   </pthread>

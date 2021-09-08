@@ -14,8 +14,8 @@ export HA_ALLOCSINFO="$HA_HOME/bin/allocs_info"
 export HA_PARAMEDIR_CFG_GEN="$HA_HOME/bin/cfg_gen.py"
 export HA_LOAD_EXTRAE_SCRIPT="$HA_HOME/scripts/load_extrae.sh"
 export HA_PARAMEDIR=/apps/WXPARAVER/4.8.1/bin/paramedir
-export HA_MPI2PRV=/apps/EXTRAE/3.6.1.mod7.noASLR/bin/mpi2prv
-export HA_MPI2PRV_EXTRA_FLAGS=
+export HA_MPI2PRV=$HA_EXTRAE_HOME/bin/mpi2prv
+export HA_MPI2PRV_EXTRA_FLAGS="-emit-raw-callstack"
 
 # if empty, will be selected automatically using the info in the HA_IS_... vars
 #export HA_EXTRAE_LIB=
