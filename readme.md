@@ -42,9 +42,9 @@ Since there are several parameters and variables that are used in more than one 
 - HA\_TRACE\_NAME: name of the prv trace, without the extension. If Extrae is configured to do the merge step, this should match the name used by Extrae. 
 - HA\_TRACE\_OUTPUT\_DIR: directory where the profiling trace and postprocessed data will be stored.
 - HA\_ADVISOR\_EXTRA\_ARGS: extra arguments that will be passed to hmem\_advisor.
-- HA\_ADVISOR\_MEM\_CONFIG: path to the hmem\_advisor configuration file. This file describes the available memory tiers, their size and the cost weights for loads and stores.
+- HA\_ADVISOR\_MEM\_CONFIG: path to the hmem\_advisor configuration file. This file describes the available memory tiers, the size, the cost weight for loads, the cost weight for stores and the associated flexmalloc allocator.
 - HA\_ADVISOR\_OUTPUT\_FILE: path of the output file that will contain the memory object distribution.
-- HA\_FLEXMALLOC\_FALLBACK\_ALLOCATOR: name of the memory tier that will be used when the assigned tier is full.
+- HA\_FLEXMALLOC\_FALLBACK\_ALLOCATOR: name of the flexmalloc allocator that will be used when the rest of allocators are full.
 - HA\_FLEXMALLOC\_MEM\_CONFIG: path of the Flexmalloc configuration file.
 - HA\_LOAD\_FLEXMALLOC\_SCRIPT: path of the script that will be used to load Flexmalloc.
 - HA\_APP\_BINARY: path of your application program.
@@ -61,6 +61,38 @@ Since there are several parameters and variables that are used in more than one 
 To allow passing flags and arguments with whitespace, the quotes and backslashes in the variables \*\_FLAGS and \*\_ARGS are interpreted as the command line shell would. For example, setting HA\_APP\_ARGS="a b1\ b2 c" or HA\_APP\_ARGS="a 'b1 b2' c" will pass 3 arguments to the application; a, "b1 b2", and c.
 
 The clear\_env.src script can be sourced to clear the framework configuration variables from your command line environment.
+
+Flexmalloc exposes the following allocators:
+
+- posix: Allocates data using the standard posix function.
+```
+# Memory configuration for allocator posix
+Size <MB available per process> Mbytes
+```
+- numa: Allocates data using numa_alloc_onnode (libnuma). 
+```
+# Memory configuration for allocator numa
+Size <MB available per process> Mbytes @ <Numa node 1> ... @ <Numa node N>
+```
+- memkind/pmem-fsdax: Allocates data on persistent memory mounted as FSDAX.
+```
+# Memory configuration for allocator memkind/pmem-fsdax
+@ </path/to/pmem 0> ... @ </path/to/pmem N>
+```
+- memkind/pmem-numa: Allocates data on persistent memory configured as Numa node. It doesn't require configuration but the following enviroment variable could be necessary in some cases:
+```
+export MEMKIND_DAX_KMEM_NODES="<Numa node (PMEM) 0>...,<Numa node (PMEM) 1>"
+```
+- memkind/pmem-numa-balanced: Allocates data on persistent memory configured as Numa node and allows the data to be migrated later by other mechanisms. It doesn't require configuration but the following enviroment variable could be necessary in some cases:
+```
+export MEMKIND_DAX_KMEM_NODES="<Numa node (PMEM) 0>...,<Numa node (PMEM) 1>"
+```
+
+- memkind/hbwmalloc: TODO
+```
+# Memory configuration for allocator memkind/hbwmalloc
+Size <MB available per process> Mbytes
+```
 
 
 ### 1. Profiling run
@@ -136,5 +168,3 @@ The rest of the framework is open source and licensed under the BSD license. [TO
 ## Citation
 
 TODO add papers' title and bibtex or link to paper webpage from publisher
-
-
