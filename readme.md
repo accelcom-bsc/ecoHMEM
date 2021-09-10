@@ -45,6 +45,8 @@ Since there are several parameters and variables that are used in more than one 
 - HA\_ADVISOR\_MEM\_CONFIG: path to the hmem\_advisor configuration file. This file describes the available memory tiers, the size, the cost weight for loads, the cost weight for stores and the associated flexmalloc allocator.
 - HA\_ADVISOR\_OUTPUT\_FILE: path of the output file that will contain the memory object distribution.
 - HA\_FLEXMALLOC\_FALLBACK\_ALLOCATOR: name of the flexmalloc allocator that will be used when the rest of allocators are full.
+- HA\_FLEXMALLOC\_MINSIZE\_THRESHOLD\_ALLOCATOR: name of the flexmalloc allocator that will be used when the size of the allocation is lower than the threshold.
+- HA\_FLEXMALLOC\_MINSIZE\_THRESHOLD\: threshold (in number of bytes) for allocations to be considered by flexmalloc.
 - HA\_FLEXMALLOC\_MEM\_CONFIG: path of the Flexmalloc configuration file.
 - HA\_LOAD\_FLEXMALLOC\_SCRIPT: path of the script that will be used to load Flexmalloc.
 - HA\_APP\_BINARY: path of your application program.
