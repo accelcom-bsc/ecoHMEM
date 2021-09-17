@@ -157,21 +157,27 @@ if [[ $do_run == "y" ]]; then
     app_args=()
     shlex_split "$app_args_str" app_args
 
-    if [[ $HA_IS_MPI_APP -eq 1 ]]; then
-        set +e
-        "$HA_APP_RUNNER" "${app_runner_flags[@]}"   "$HA_MPIRUN" "${mpirun_flags[@]}"   "$HA_LOAD_EXTRAE_SCRIPT" "$output_dir" "$HA_EXTRAE_XML"   "$HA_APP_BINARY" "${app_args[@]}" > "$app_out_file" 2> "$app_err_file"
-        retcode=$?
-        set -e
-    else
-        set +e
-        "$HA_APP_RUNNER" "${app_runner_flags[@]}"   "$HA_LOAD_EXTRAE_SCRIPT" "$output_dir" "$HA_EXTRAE_XML"   "$HA_APP_BINARY" "${app_args[@]}" > "$app_out_file" 2> "$app_err_file"
-        retcode=$?
-        set -e
+    cmd=()
+    if [[ ! -z $app_runner ]]; then
+        cmd+=("$app_runner" "${app_runner_flags[@]}")
     fi
+
+    if [[ $HA_IS_MPI_APP -eq 1 ]]; then
+        cmd+=("$HA_MPIRUN" "${mpirun_flags[@]}")
+    fi
+
+    cmd+=("$HA_LOAD_EXTRAE_SCRIPT" "$output_dir" "$HA_EXTRAE_XML"  "$HA_APP_BINARY" "${app_args[@]}")
+    
+    set +e
+    "${cmd[@]}" > "$app_out_file" 2> "$app_err_file"
+    retcode=$?
+    set -e
+
     if [[ $retcode -ne 0 ]]; then
         ercho "Error: the application execution failed, check '$app_err_file' and '$app_out_file' for more details"
         exit 1
     fi
+
     # FIXME workaround for extrae output dir, the envar EXTRAE_FINAL_DIR doesn't seem to work
     set +e
     mv *.prv *.pcf *.row set-0 TRACE.mpits TRACE.sym "$output_dir"

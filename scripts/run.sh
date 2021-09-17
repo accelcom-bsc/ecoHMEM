@@ -10,6 +10,15 @@ source "$HA_HOME/scripts/utils.src"
 while [[ $# -gt 0 ]]; do
   arg="$1"
   case $arg in
+    --obj-file)
+      arg_obj_file="$2"
+      shift
+      shift
+      ;;
+    --obj-file=*)
+      arg_obj_file="${key#*=}"
+      shift
+      ;;
     --app-args)
       arg_app_args="$2"
       shift
@@ -46,6 +55,19 @@ while [[ $# -gt 0 ]]; do
       arg_mpirun_flags="${key#*=}"
       shift
       ;;
+    --flexmalloc-config)
+      arg_fm_config="$2"
+      shift
+      shift
+      ;;
+    --flexmalloc-config=*)
+      arg_fm_config="${key#*=}"
+      shift
+      ;;
+    --flexmalloc)
+      arg_load_fm=1
+      shift
+      ;;
     *)
       ercho "Error: Unknown argument $arg"
       exit 1
@@ -54,6 +76,9 @@ while [[ $# -gt 0 ]]; do
 done
 
 #output_file=${arg_output_file:-$HA_ADVISOR_OUTPUT_FILE}
+
+fm_mem_config=${arg_fm_config:-$HA_FLEXMALLOC_MEM_CONFIG}
+obj_dist_file=${arg_obj_file:-$HA_ADVISOR_OUTPUT_FILE}
 
 app_args_str=${arg_app_args:-$HA_APP_ARGS}
 mpirun_flags_str=${arg_mpirun_flags:-$HA_MPIRUN_FLAGS}
@@ -65,6 +90,11 @@ app_runner_flags_str=${arg_app_runner_flags:-$HA_APP_RUNNER_FLAGS}
 #app_out_file=$output_dir/run.out
 #app_err_file=$output_dir/run.err
 
+export FLEXMALLOC_HOME=$HA_FLEXMALLOC_HOME
+export FLEXMALLOC_FALLBACK_ALLOCATOR=$HA_FLEXMALLOC_FALLBACK_ALLOCATOR
+export FLEXMALLOC_MINSIZE_THRESHOLD=$HA_FLEXMALLOC_MINSIZE_THRESHOLD
+export FLEXMALLOC_MINSIZE_THRESHOLD_ALLOCATOR=$HA_FLEXMALLOC_MINSIZE_THRESHOLD_ALLOCATOR
+
 # parse quotes and backslashes in arg/flag lists
 app_runner_flags=()
 shlex_split "$app_runner_flags_str" app_runner_flags
@@ -73,13 +103,23 @@ shlex_split "$mpirun_flags_str" mpirun_flags
 app_args=()
 shlex_split "$app_args_str" app_args
 
+cmd=()
+if [[ ! -z $app_runner ]]; then
+    cmd+=("$app_runner" "${app_runner_flags[@]}")
+fi
+
 if [[ $HA_IS_MPI_APP -eq 1 ]]; then
-    "$app_runner" "${app_runner_flags[@]}"   "$HA_MPIRUN" "${mpirun_flags[@]}" "$HA_APP_BINARY" "${app_args[@]}" #> "$app_out_file" 2> "$app_err_file"
+    cmd+=("$HA_MPIRUN" "${mpirun_flags[@]}")
 else
     if [[ ! -z $arg_mpirun_flags ]]; then
         echo "Warn: ignoring --mpirun-flags because the app is not configured as an MPI app"
     fi
-
-    "$app_runner" "${app_runner_flags[@]}" "$HA_APP_BINARY" "${app_args[@]}" #> "$app_out_file" 2> "$app_err_file"
 fi
 
+if [[ $arg_load_fm -eq 1 ]]; then
+    cmd+=("$HA_LOAD_FLEXMALLOC_SCRIPT" "$fm_mem_config" "$obj_dist_file")
+fi
+
+cmd+=("$HA_APP_BINARY" "${app_args[@]}")
+
+"${cmd[@]}"
