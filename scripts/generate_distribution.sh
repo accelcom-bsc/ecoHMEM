@@ -93,9 +93,9 @@ fi
 
 if [[ $do_it == "y" ]]; then
     if [[ $trace_type == "loads" ]]; then
-        stores_arg=""
+        stores_arg=()
     elif [[ $trace_type == "loads_stores" ]]; then
-        stores_arg="--stores $postprocess_data_dir/loads+stores.store_miss_L1.csv"
+        stores_arg=("--stores" "$postprocess_data_dir/$trace_type.store_miss_L1.csv")
     else
         ercho "Error: unknown trace type: $trace_type"
         exit 1
@@ -105,5 +105,5 @@ if [[ $do_it == "y" ]]; then
     advisor_extra_args=()
     shlex_split "$HA_ADVISOR_EXTRA_ARGS" advisor_extra_args
 
-    "$HA_PYTHON" "$HA_ADVISOR" "${advisor_extra_args[@]}" "${arg_advisor_extra_args[@]}" --mem_config "$mem_config" --sizes "$postprocess_data_dir/loads+stores.sizes.csv" --loads "$postprocess_data_dir/loads+stores.load_miss.csv" > $output_file
+    "$HA_PYTHON" "$HA_ADVISOR" "${advisor_extra_args[@]}" "${arg_advisor_extra_args[@]}" --mem_config "$mem_config" --sizes "$postprocess_data_dir/$trace_type.sizes.csv" --loads "$postprocess_data_dir/$trace_type.load_miss.csv" "${stores_arg[@]}" --allocs-info "$postprocess_data_dir/$trace_type.allocsinfo.json" > $output_file
 fi

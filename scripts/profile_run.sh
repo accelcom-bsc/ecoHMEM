@@ -258,19 +258,16 @@ fi
 if [[ $do_postpo == "y" ]]; then
     echo "Info: postprocessing profiling data"
     if [[ $trace_type == "loads" ]]; then
-        "$HA_PARAMEDIR" "$trace_file" "$paramedir_configs_dir/ld_load-miss.cfg" "$postprocess_data_dir/loads.load_miss.csv"
-        "$HA_PARAMEDIR" "$trace_file" "$paramedir_configs_dir/ld_max-size.cfg"  "$postprocess_data_dir/loads.sizes.csv"
+        "$HA_PARAMEDIR" "$trace_file" "$paramedir_configs_dir/ld_load-miss.cfg" "$postprocess_data_dir/$trace_type.load_miss.csv"
+        "$HA_PARAMEDIR" "$trace_file" "$paramedir_configs_dir/ld_max-size.cfg"  "$postprocess_data_dir/$trace_type.sizes.csv"
         
-        "$HA_ALLOCSINFO" "$trace_file" > "$postprocess_data_dir/loads.allocsinfo.json" 2> "$postprocess_data_dir/loads.allocsinfo.err"
+        "$HA_ALLOCSINFO" "$trace_file" > "$postprocess_data_dir/$trace_type.allocsinfo.json" 2> "$postprocess_data_dir/$trace_type.allocsinfo.err"
     elif [[ $trace_type == "loads_stores" ]]; then
-        "$HA_PARAMEDIR" "$trace_file" "$paramedir_configs_dir/ldst_load-miss.cfg"       "$postprocess_data_dir/loads+stores.load_miss.csv"
-        "$HA_PARAMEDIR" "$trace_file" "$paramedir_configs_dir/ldst_l1d-store-miss.cfg"  "$postprocess_data_dir/loads+stores.store_miss_L1.csv"
-        "$HA_PARAMEDIR" "$trace_file" "$paramedir_configs_dir/ldst_max-size.cfg"        "$postprocess_data_dir/loads+stores.sizes.csv"
-        "$HA_PARAMEDIR" "$trace_file" --print-plane 1 "$paramedir_configs_dir/ldst_l3-store-miss.cfg" "$postprocess_data_dir/output.csv"
-        tail -n+2 "$postprocess_data_dir/output.csv" > "$postprocess_data_dir/loads+stores.store_miss_L3.csv"
-        rm "$postprocess_data_dir/output.csv"
+        "$HA_PARAMEDIR" "$trace_file" "$paramedir_configs_dir/ldst_load-miss.cfg"       "$postprocess_data_dir/$trace_type.load_miss.csv"
+        "$HA_PARAMEDIR" "$trace_file" "$paramedir_configs_dir/ldst_l1d-store-miss.cfg"  "$postprocess_data_dir/$trace_type.store_miss_L1.csv"
+        "$HA_PARAMEDIR" "$trace_file" "$paramedir_configs_dir/ldst_max-size.cfg"        "$postprocess_data_dir/$trace_type.sizes.csv"
 
-        "$HA_ALLOCSINFO" "$trace_file" > "$postprocess_data_dir/loads+stores.allocsinfo.json" 2> "$postprocess_data_dir/loads+stores.allocsinfo.err"
+        "$HA_ALLOCSINFO" "$trace_file" > "$postprocess_data_dir/$trace_type.allocsinfo.json" 2> "$postprocess_data_dir/$trace_type.allocsinfo.err"
     else
         ercho "Error: unknown trace type: $trace_type"
         exit 1
