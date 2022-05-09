@@ -94,6 +94,10 @@ while [[ $# -gt 0 ]]; do
       arg_force_postprocess=y
       shift
       ;;
+    --ignore-app-exitcode)
+      arg_ignore_app_exitcode=y
+      shift
+      ;;
     *)
       ercho "Error: Unknown argument $arg"
       exit 1
@@ -104,6 +108,7 @@ done
 force=${arg_force:-n}
 force_cfgs=${arg_force_cfgs:-n}
 force_postprocess=${arg_force_postprocess:-n}
+ignore_app_exitcode=${arg_ignore_app_exitcode:-n}
 
 output_dir=${arg_output_dir:-$HA_TRACE_OUTPUT_DIR}
 trace_name=${arg_trace_name:-$HA_TRACE_NAME}
@@ -174,8 +179,12 @@ if [[ $do_run == "y" ]]; then
     set -e
 
     if [[ $retcode -ne 0 ]]; then
-        ercho "Error: the application execution failed, check '$app_err_file' and '$app_out_file' for more details"
-        exit 1
+        if [[ $ignore_app_exitcode == "y" ]]; then
+            echo "Warn: ignoring non-zero application exit code: $retcode"
+        else
+            ercho "Error: the application execution failed (exit code $retcode), check '$app_err_file' and '$app_out_file' for more details"
+            exit 1
+        fi
     fi
 
     # FIXME workaround for extrae output dir, the envar EXTRAE_FINAL_DIR doesn't seem to work
