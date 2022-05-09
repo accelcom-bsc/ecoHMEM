@@ -189,7 +189,7 @@ if [[ $do_run == "y" ]]; then
 
     # FIXME workaround for extrae output dir, the envar EXTRAE_FINAL_DIR doesn't seem to work
     set +e
-    mv *.prv *.pcf *.row set-0 TRACE.mpits TRACE.sym "$output_dir"
+    mv *.prv *.pcf *.row set-0 TRACE.mpits TRACE.sym TRACE.spawn "$output_dir"
     set -e
 fi
 
