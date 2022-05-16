@@ -1,11 +1,13 @@
+# This is an example configuration file used to setup the environment vars used by ecoHMEM.
+# Copy this file and modify it to match your system and application.
 
 num_ranks=12
 num_threads=2
-input_size=10
+input_size=100
 dram_size=12gb
 
-export ECOHMEM_HOME=~/scratch-two/rel_scripts
-export ECOHMEM_EXTRAE_HOME=/apps/EXTRAE/3.6.1.mod8/impi
+export ECOHMEM_HOME=~/ecoHMEM
+export ECOHMEM_EXTRAE_HOME=/apps/EXTRAE/4.0.0
 export ECOHMEM_FLEXMALLOC_HOME=/apps/FLEXMALLOC/0.2.2
 
 export ECOHMEM_PYTHON=python3
@@ -15,7 +17,9 @@ export ECOHMEM_PARAMEDIR_CFG_GEN="$ECOHMEM_HOME/bin/cfg_gen"
 export ECOHMEM_LOAD_EXTRAE_SCRIPT="$ECOHMEM_HOME/scripts/load_extrae.sh"
 export ECOHMEM_PARAMEDIR=/apps/WXPARAVER/4.8.1/bin/paramedir
 export ECOHMEM_MPI2PRV=$ECOHMEM_EXTRAE_HOME/bin/mpi2prv
-export ECOHMEM_MPI2PRV_EXTRA_FLAGS="-emit-raw-callstack"
+
+#export ECOHMEM_MPI2PRV_EXTRA_FLAGS="-no-translate-data-addresses"
+export ECOHMEM_MPI2PRV_EXTRA_FLAGS=""
 
 # if empty, will be selected automatically using the info in the ECOHMEM_IS_... vars
 #export ECOHMEM_EXTRAE_LIB=
@@ -25,30 +29,30 @@ export ECOHMEM_EXTRAE_XML="$ECOHMEM_HOME/extrae_confs/ldst_extrae.xml"
 export ECOHMEM_TRACE_TYPE=loads_stores
 
 # if the merge is done by Extrae (configured through the xml), this should match the name of the .prv file, without the extension
-export ECOHMEM_TRACE_NAME=minife_icc_o3
+export ECOHMEM_TRACE_NAME=minife.x
 export ECOHMEM_TRACE_OUTPUT_DIR=out_profile_run
 
 export ECOHMEM_ADVISOR_EXTRA_ARGS="--rank-statistics=Average --num-ranks=$num_ranks"
 export ECOHMEM_ADVISOR_MEM_CONFIG="$ECOHMEM_HOME/mem_confs/advisor_lds-1-5_sts-1-10_${dram_size}.csv"
 export ECOHMEM_ADVISOR_OUTPUT_FILE=object_dist.locations
 
-export ECOHMEM_FLEXMALLOC_FALLBACK_ALLOCATOR=memkind/pmem-fsdax
+export ECOHMEM_FLEXMALLOC_FALLBACK_ALLOCATOR=memkind/pmem
 export ECOHMEM_FLEXMALLOC_MINSIZE_THRESHOLD_ALLOCATOR=$ECOHMEM_FLEXMALLOC_FALLBACK_ALLOCATOR
 export ECOHMEM_FLEXMALLOC_MINSIZE_THRESHOLD=1024
 export ECOHMEM_FLEXMALLOC_MEM_CONFIG="$ECOHMEM_HOME/mem_confs/fmconf_${num_ranks}procs_${dram_size}"
 export ECOHMEM_LOAD_FLEXMALLOC_SCRIPT="$ECOHMEM_FLEXMALLOC_HOME/bin/flexmalloc.sh"
 
 # App info
-export ECOHMEM_APP_BINARY=~/scratch-two/miniapps/minife/minife_icc_o3
+export ECOHMEM_APP_BINARY=~/miniFE/minife.x
 export ECOHMEM_APP_ARGS="--nx=$input_size --ny=$input_size --nz=$input_size"
 export ECOHMEM_IS_FORTRAN_APP=0
 export ECOHMEM_IS_MPI_APP=1
-export ECOHMEM_IS_OMP_APP=0 #1
+export ECOHMEM_IS_OMP_APP=1
 export ECOHMEM_IS_PTHREAD_APP=0
 
 # Runners config
 export ECOHMEM_MPIRUN=mpirun
-export ECOHMEM_MPIRUN_FLAGS="-genv OMP_NUM_THREADS=$num_threads -genv I_MPI_PIN_DOMAIN=omp -genv I_MPI_DEBUG=5 -np $num_ranks"
+export ECOHMEM_MPIRUN_FLAGS="-genv OMP_NUM_THREADS=$num_threads -np $num_ranks"
 
 export ECOHMEM_APP_RUNNER=numactl
 export ECOHMEM_APP_RUNNER_FLAGS="-N 1 -m 1"

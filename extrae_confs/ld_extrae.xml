@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 
 <trace enabled="yes"
- home="/apps/EXTRAE/3.6.1.mod8/impi"
+ home="/apps/EXTRAE/4.0.0"
  initial-mode="detail"
  type="paraver"
 >
@@ -56,7 +56,7 @@
     <flush-sampling-buffer-at-instrumentation-point enabled="yes" />
   </others>
 
-  <sampling enabled="no" type="default" period="50m" variability="10m" />
+  <sampling enabled="yes" type="default" period="50m" variability="10m" />
 
 <pebs-sampling enabled="yes">
   <loads  enabled="no" frequency="100" minimum-latency="10" />
