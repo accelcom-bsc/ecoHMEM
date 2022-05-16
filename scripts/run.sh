@@ -1,11 +1,11 @@
 #!/bin/bash -e
 
-if [[ -z $HA_HOME ]]; then
-    echo "Error: HA_HOME is not set, maybe you forgot to source the config file?"
+if [[ -z $ECOHMEM_HOME ]]; then
+    echo "Error: ECOHMEM_HOME is not set, maybe you forgot to source the config file?"
     exit 1
 fi
 
-source "$HA_HOME/scripts/utils.src"
+source "$ECOHMEM_HOME/scripts/utils.src"
 
 while [[ $# -gt 0 ]]; do
   arg="$1"
@@ -75,25 +75,25 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-#output_file=${arg_output_file:-$HA_ADVISOR_OUTPUT_FILE}
+#output_file=${arg_output_file:-$ECOHMEM_ADVISOR_OUTPUT_FILE}
 
-fm_mem_config=${arg_fm_config:-$HA_FLEXMALLOC_MEM_CONFIG}
-obj_dist_file=${arg_obj_file:-$HA_ADVISOR_OUTPUT_FILE}
+fm_mem_config=${arg_fm_config:-$ECOHMEM_FLEXMALLOC_MEM_CONFIG}
+obj_dist_file=${arg_obj_file:-$ECOHMEM_ADVISOR_OUTPUT_FILE}
 
-app_args_str=${arg_app_args:-$HA_APP_ARGS}
-mpirun_flags_str=${arg_mpirun_flags:-$HA_MPIRUN_FLAGS}
-app_runner=${arg_app_runner:-$HA_APP_RUNNER}
-app_runner_flags_str=${arg_app_runner_flags:-$HA_APP_RUNNER_FLAGS}
+app_args_str=${arg_app_args:-$ECOHMEM_APP_ARGS}
+mpirun_flags_str=${arg_mpirun_flags:-$ECOHMEM_MPIRUN_FLAGS}
+app_runner=${arg_app_runner:-$ECOHMEM_APP_RUNNER}
+app_runner_flags_str=${arg_app_runner_flags:-$ECOHMEM_APP_RUNNER_FLAGS}
 
 
 #output_dir=
 #app_out_file=$output_dir/run.out
 #app_err_file=$output_dir/run.err
 
-export FLEXMALLOC_HOME=$HA_FLEXMALLOC_HOME
-export FLEXMALLOC_FALLBACK_ALLOCATOR=$HA_FLEXMALLOC_FALLBACK_ALLOCATOR
-export FLEXMALLOC_MINSIZE_THRESHOLD=$HA_FLEXMALLOC_MINSIZE_THRESHOLD
-export FLEXMALLOC_MINSIZE_THRESHOLD_ALLOCATOR=$HA_FLEXMALLOC_MINSIZE_THRESHOLD_ALLOCATOR
+export FLEXMALLOC_HOME=$ECOHMEM_FLEXMALLOC_HOME
+export FLEXMALLOC_FALLBACK_ALLOCATOR=$ECOHMEM_FLEXMALLOC_FALLBACK_ALLOCATOR
+export FLEXMALLOC_MINSIZE_THRESHOLD=$ECOHMEM_FLEXMALLOC_MINSIZE_THRESHOLD
+export FLEXMALLOC_MINSIZE_THRESHOLD_ALLOCATOR=$ECOHMEM_FLEXMALLOC_MINSIZE_THRESHOLD_ALLOCATOR
 
 # parse quotes and backslashes in arg/flag lists
 app_runner_flags=()
@@ -108,8 +108,8 @@ if [[ ! -z $app_runner ]]; then
     cmd+=("$app_runner" "${app_runner_flags[@]}")
 fi
 
-if [[ $HA_IS_MPI_APP -eq 1 ]]; then
-    cmd+=("$HA_MPIRUN" "${mpirun_flags[@]}")
+if [[ $ECOHMEM_IS_MPI_APP -eq 1 ]]; then
+    cmd+=("$ECOHMEM_MPIRUN" "${mpirun_flags[@]}")
 else
     if [[ ! -z $arg_mpirun_flags ]]; then
         echo "Warn: ignoring --mpirun-flags because the app is not configured as an MPI app"
@@ -117,9 +117,9 @@ else
 fi
 
 if [[ $arg_load_fm -eq 1 ]]; then
-    cmd+=("$HA_LOAD_FLEXMALLOC_SCRIPT" "$fm_mem_config" "$obj_dist_file")
+    cmd+=("$ECOHMEM_LOAD_FLEXMALLOC_SCRIPT" "$fm_mem_config" "$obj_dist_file")
 fi
 
-cmd+=("$HA_APP_BINARY" "${app_args[@]}")
+cmd+=("$ECOHMEM_APP_BINARY" "${app_args[@]}")
 
 "${cmd[@]}"

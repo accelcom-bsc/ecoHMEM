@@ -1,11 +1,11 @@
 #!/bin/bash -e
 
-if [[ -z $HA_HOME ]]; then
-    echo "Error: HA_HOME is not set, maybe you forgot to source the config file?"
+if [[ -z $ECOHMEM_HOME ]]; then
+    echo "Error: ECOHMEM_HOME is not set, maybe you forgot to source the config file?"
     exit 1
 fi
 
-source "$HA_HOME/scripts/utils.src"
+source "$ECOHMEM_HOME/scripts/utils.src"
 
 while [[ $# -gt 0 ]]; do
   arg="$1"
@@ -110,9 +110,9 @@ force_cfgs=${arg_force_cfgs:-n}
 force_postprocess=${arg_force_postprocess:-n}
 ignore_app_exitcode=${arg_ignore_app_exitcode:-n}
 
-output_dir=${arg_output_dir:-$HA_TRACE_OUTPUT_DIR}
-trace_name=${arg_trace_name:-$HA_TRACE_NAME}
-trace_type=${arg_trace_type:-$HA_TRACE_TYPE}
+output_dir=${arg_output_dir:-$ECOHMEM_TRACE_OUTPUT_DIR}
+trace_name=${arg_trace_name:-$ECOHMEM_TRACE_NAME}
+trace_type=${arg_trace_type:-$ECOHMEM_TRACE_TYPE}
 
 paramedir_configs_dir="$output_dir/configs"
 postprocess_data_dir="$output_dir/postprocessed_data"
@@ -120,11 +120,11 @@ postprocess_data_dir="$output_dir/postprocessed_data"
 trace_file="$output_dir/$trace_name.prv"
 trace_pcf_file="$output_dir/$trace_name.pcf"
 
-app_args_str=${arg_app_args:-$HA_APP_ARGS}
-mpirun_flags_str=${arg_mpirun_flags:-$HA_MPIRUN_FLAGS}
-app_runner=${arg_app_runner:-$HA_APP_RUNNER}
-app_runner_flags_str=${arg_app_runner_flags:-$HA_APP_RUNNER_FLAGS}
-mpi2prv_extra_flags_str=${arg_mpi2prv_flags:-$HA_MPI2PRV_EXTRA_FLAGS}
+app_args_str=${arg_app_args:-$ECOHMEM_APP_ARGS}
+mpirun_flags_str=${arg_mpirun_flags:-$ECOHMEM_MPIRUN_FLAGS}
+app_runner=${arg_app_runner:-$ECOHMEM_APP_RUNNER}
+app_runner_flags_str=${arg_app_runner_flags:-$ECOHMEM_APP_RUNNER_FLAGS}
+mpi2prv_extra_flags_str=${arg_mpi2prv_flags:-$ECOHMEM_MPI2PRV_EXTRA_FLAGS}
 
 if [[ -e $output_dir ]]; then
     if [[ ! -d $output_dir ]]; then
@@ -167,11 +167,11 @@ if [[ $do_run == "y" ]]; then
         cmd+=("$app_runner" "${app_runner_flags[@]}")
     fi
 
-    if [[ $HA_IS_MPI_APP -eq 1 ]]; then
-        cmd+=("$HA_MPIRUN" "${mpirun_flags[@]}")
+    if [[ $ECOHMEM_IS_MPI_APP -eq 1 ]]; then
+        cmd+=("$ECOHMEM_MPIRUN" "${mpirun_flags[@]}")
     fi
 
-    cmd+=("$HA_LOAD_EXTRAE_SCRIPT" "$output_dir" "$HA_EXTRAE_XML"  "$HA_APP_BINARY" "${app_args[@]}")
+    cmd+=("$ECOHMEM_LOAD_EXTRAE_SCRIPT" "$output_dir" "$ECOHMEM_EXTRAE_XML"  "$ECOHMEM_APP_BINARY" "${app_args[@]}")
     
     set +e
     "${cmd[@]}" > "$app_out_file" 2> "$app_err_file"
@@ -204,8 +204,8 @@ fi
 
 if [[ $do_merge == "y" ]]; then
     echo "Info: merging intermediate profiling trace"
-    if [[ -z $HA_MPI2PRV ]]; then
-        ercho "Error: HA_MPI2PRV is unset and is required to merge the intermediate Extrae trace."
+    if [[ -z $ECOHMEM_MPI2PRV ]]; then
+        ercho "Error: ECOHMEM_MPI2PRV is unset and is required to merge the intermediate Extrae trace."
         exit 1
     fi
     
@@ -213,7 +213,7 @@ if [[ $do_merge == "y" ]]; then
     mpi2prv_extra_flags=()
     shlex_split "$mpi2prv_extra_flags_str" mpi2prv_extra_flags
 
-    "$HA_MPI2PRV" -f "$output_dir/TRACE.mpits" -o "$trace_file" "${mpi2prv_extra_flags[@]}"
+    "$ECOHMEM_MPI2PRV" -f "$output_dir/TRACE.mpits" -o "$trace_file" "${mpi2prv_extra_flags[@]}"
 fi
 
 ##
@@ -237,9 +237,9 @@ fi
 if [[ $do_cfgs == "y" ]]; then
     echo "Info: generating paramedir config files"
     if [[ $trace_type == "loads" ]]; then
-        "$HA_PARAMEDIR_CFG_GEN" -f --ld "$trace_pcf_file" "$paramedir_configs_dir"
+        "$ECOHMEM_PARAMEDIR_CFG_GEN" -f --ld "$trace_pcf_file" "$paramedir_configs_dir"
     elif [[ $trace_type == "loads_stores" ]]; then
-        "$HA_PARAMEDIR_CFG_GEN" -f --ldst "$trace_pcf_file" "$paramedir_configs_dir"
+        "$ECOHMEM_PARAMEDIR_CFG_GEN" -f --ldst "$trace_pcf_file" "$paramedir_configs_dir"
     else
         ercho "Error: unknown trace type: $trace_type"
         exit 1
@@ -267,16 +267,16 @@ fi
 if [[ $do_postpo == "y" ]]; then
     echo "Info: postprocessing profiling data"
     if [[ $trace_type == "loads" ]]; then
-        "$HA_PARAMEDIR" "$trace_file" "$paramedir_configs_dir/ld_load-miss.cfg" "$postprocess_data_dir/$trace_type.load_miss.csv"
-        "$HA_PARAMEDIR" "$trace_file" "$paramedir_configs_dir/ld_max-size.cfg"  "$postprocess_data_dir/$trace_type.sizes.csv"
+        "$ECOHMEM_PARAMEDIR" "$trace_file" "$paramedir_configs_dir/ld_load-miss.cfg" "$postprocess_data_dir/$trace_type.load_miss.csv"
+        "$ECOHMEM_PARAMEDIR" "$trace_file" "$paramedir_configs_dir/ld_max-size.cfg"  "$postprocess_data_dir/$trace_type.sizes.csv"
         
-        "$HA_ALLOCSINFO" "$trace_file" > "$postprocess_data_dir/$trace_type.allocsinfo.json" 2> "$postprocess_data_dir/$trace_type.allocsinfo.err"
+        "$ECOHMEM_ALLOCSINFO" "$trace_file" > "$postprocess_data_dir/$trace_type.allocsinfo.json" 2> "$postprocess_data_dir/$trace_type.allocsinfo.err"
     elif [[ $trace_type == "loads_stores" ]]; then
-        "$HA_PARAMEDIR" "$trace_file" "$paramedir_configs_dir/ldst_load-miss.cfg"       "$postprocess_data_dir/$trace_type.load_miss.csv"
-        "$HA_PARAMEDIR" "$trace_file" "$paramedir_configs_dir/ldst_l1d-store-miss.cfg"  "$postprocess_data_dir/$trace_type.store_miss_L1.csv"
-        "$HA_PARAMEDIR" "$trace_file" "$paramedir_configs_dir/ldst_max-size.cfg"        "$postprocess_data_dir/$trace_type.sizes.csv"
+        "$ECOHMEM_PARAMEDIR" "$trace_file" "$paramedir_configs_dir/ldst_load-miss.cfg"       "$postprocess_data_dir/$trace_type.load_miss.csv"
+        "$ECOHMEM_PARAMEDIR" "$trace_file" "$paramedir_configs_dir/ldst_l1d-store-miss.cfg"  "$postprocess_data_dir/$trace_type.store_miss_L1.csv"
+        "$ECOHMEM_PARAMEDIR" "$trace_file" "$paramedir_configs_dir/ldst_max-size.cfg"        "$postprocess_data_dir/$trace_type.sizes.csv"
 
-        "$HA_ALLOCSINFO" "$trace_file" > "$postprocess_data_dir/$trace_type.allocsinfo.json" 2> "$postprocess_data_dir/$trace_type.allocsinfo.err"
+        "$ECOHMEM_ALLOCSINFO" "$trace_file" > "$postprocess_data_dir/$trace_type.allocsinfo.json" 2> "$postprocess_data_dir/$trace_type.allocsinfo.err"
     else
         ercho "Error: unknown trace type: $trace_type"
         exit 1

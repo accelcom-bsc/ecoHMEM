@@ -1,2 +1,2 @@
-# source this file to remove the HA_... environment variables
-for var in "${!HA_@}"; do unset "$var"; done
+# source this file to remove the ECOHMEM_... environment variables
+for var in "${!ECOHMEM_@}"; do unset "$var"; done

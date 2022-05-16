@@ -27,42 +27,42 @@ None of this steps requires any change in the source code of the application. We
 
 Since there are several parameters and variables that are used in more than one of the steps, the scripts we provide are prepared to take get the information from a set of environment variables. To setup these variables, copy the file example\_conf.src to your working directory. This file consists of a list of export commands that setup the variables expected by the scripts, and you will have to load it using the _source_ command. The main variables you will have to modify are the ones describing the application and its arguments, but there are several variables to configure the tools and scripts of the framework.
 
-- HA\_HOME: the path of the directory containing the framework.
-- HA\_EXTRAE\_HOME: the path of the directory where you installed Extrae.
-- HA\_FLEXMALLOC\_HOME: the path of the directory where Flexmalloc is installed.
-- HA\_PYTHON: the path of the python interpreter.
-- HA\_ADVISOR: the path of the *hmem\_advisor* program.
-- HA\_ALLOCSINFO: the path of the *allocs\_info* program. It is used to extract data from the profiling trace.
-- HA\_PARAMEDIR\_CFG\_GEN: the path of the *cfg\_gen program*. It is used to generate Paramedir configuration files.
-- HA\_LOAD\_EXTRAE\_SCRIPT: the path of the helper script that will be used to load Extrae.
-- HA\_PARAMEDIR: the path of the *Paramedir* program. It is used to extract data from the profiling trace.
-- HA\_MPI2PRV: the path of the *mpi2prv* program. It converts the intermediate Extrae trace to the usual prv format, if it wasn't done by Extrae at the end of the profiling run.
-- HA\_MPI2PRV\_EXTRA\_FLAGS: extra flags that will be passed to mpi2prv.
-- HA\_EXTRAE\_LIB: path of the Extrae dynamic library to use for the profiling run. If this variable is empty, the framework will select a library automatically using variables that describe the application.
-- HA\_EXTRAE\_XML: path of the Extrae configuration file. There are a couple of example configuration files in the *extrae\_confs* directory.
-- HA\_TRACE\_TYPE: type of the data being collected. Currently it can be *loads* or *loads\_stores*. It has to match with the PEBS counters configured in the Extrae configuration file.
-- HA\_TRACE\_NAME: name of the prv trace, without the extension. If Extrae is configured to do the merge step, this should match the name used by Extrae. 
-- HA\_TRACE\_OUTPUT\_DIR: directory where the profiling trace and postprocessed data will be stored.
-- HA\_ADVISOR\_EXTRA\_ARGS: extra arguments that will be passed to hmem\_advisor.
-- HA\_ADVISOR\_MEM\_CONFIG: path to the hmem\_advisor configuration file. This file describes the available memory tiers, the size, the cost weight for loads, the cost weight for stores and the associated flexmalloc allocator.
-- HA\_ADVISOR\_OUTPUT\_FILE: path of the output file that will contain the memory object distribution.
-- HA\_FLEXMALLOC\_FALLBACK\_ALLOCATOR: name of the flexmalloc allocator that will be used when the rest of allocators are full.
-- HA\_FLEXMALLOC\_MINSIZE\_THRESHOLD\_ALLOCATOR: name of the flexmalloc allocator that will be used when the size of the allocation is lower than the threshold.
-- HA\_FLEXMALLOC\_MINSIZE\_THRESHOLD\: threshold (in number of bytes) for allocations to be considered by flexmalloc.
-- HA\_FLEXMALLOC\_MEM\_CONFIG: path of the Flexmalloc configuration file.
-- HA\_LOAD\_FLEXMALLOC\_SCRIPT: path of the script that will be used to load Flexmalloc.
-- HA\_APP\_BINARY: path of your application program.
-- HA\_APP\_ARGS: arguments that will be passed to your application.
-- HA\_IS\_FORTRAN\_APP: describes if your application is written in Fortran or not (set to 1 or 0, respectively).
-- HA\_IS\_MPI\_APP: set to 1 if your application uses MPI.
-- HA\_IS\_OMP\_APP: set to 1 if your application uses OpenMP.
-- HA\_IS\_PTHREAD\_APP: set to 1 if your application uses pthreads.
-- HA\_MPIRUN: path of the mpirun program. Only used for MPI applications.
-- HA\_MPIRUN\_FLAGS: arguments that will be passed to mpirun.
-- HA\_APP\_RUNNER: path of the tool that should be used to run your application (e.g. numactl).
-- HA\_APP\_RUNNER\_FLAGS: arguments for the runner tool.
+- ECOHMEM\_HOME: the path of the directory containing the framework.
+- ECOHMEM\_EXTRAE\_HOME: the path of the directory where you installed Extrae.
+- ECOHMEM\_FLEXMALLOC\_HOME: the path of the directory where Flexmalloc is installed.
+- ECOHMEM\_PYTHON: the path of the python interpreter.
+- ECOHMEM\_ADVISOR: the path of the *hmem\_advisor* program.
+- ECOHMEM\_ALLOCSINFO: the path of the *allocs\_info* program. It is used to extract data from the profiling trace.
+- ECOHMEM\_PARAMEDIR\_CFG\_GEN: the path of the *cfg\_gen program*. It is used to generate Paramedir configuration files.
+- ECOHMEM\_LOAD\_EXTRAE\_SCRIPT: the path of the helper script that will be used to load Extrae.
+- ECOHMEM\_PARAMEDIR: the path of the *Paramedir* program. It is used to extract data from the profiling trace.
+- ECOHMEM\_MPI2PRV: the path of the *mpi2prv* program. It converts the intermediate Extrae trace to the usual prv format, if it wasn't done by Extrae at the end of the profiling run.
+- ECOHMEM\_MPI2PRV\_EXTRA\_FLAGS: extra flags that will be passed to mpi2prv.
+- ECOHMEM\_EXTRAE\_LIB: path of the Extrae dynamic library to use for the profiling run. If this variable is empty, the framework will select a library automatically using variables that describe the application.
+- ECOHMEM\_EXTRAE\_XML: path of the Extrae configuration file. There are a couple of example configuration files in the *extrae\_confs* directory.
+- ECOHMEM\_TRACE\_TYPE: type of the data being collected. Currently it can be *loads* or *loads\_stores*. It has to match with the PEBS counters configured in the Extrae configuration file.
+- ECOHMEM\_TRACE\_NAME: name of the prv trace, without the extension. If Extrae is configured to do the merge step, this should match the name used by Extrae. 
+- ECOHMEM\_TRACE\_OUTPUT\_DIR: directory where the profiling trace and postprocessed data will be stored.
+- ECOHMEM\_ADVISOR\_EXTRA\_ARGS: extra arguments that will be passed to hmem\_advisor.
+- ECOHMEM\_ADVISOR\_MEM\_CONFIG: path to the hmem\_advisor configuration file. This file describes the available memory tiers, the size, the cost weight for loads, the cost weight for stores and the associated flexmalloc allocator.
+- ECOHMEM\_ADVISOR\_OUTPUT\_FILE: path of the output file that will contain the memory object distribution.
+- ECOHMEM\_FLEXMALLOC\_FALLBACK\_ALLOCATOR: name of the flexmalloc allocator that will be used when the rest of allocators are full.
+- ECOHMEM\_FLEXMALLOC\_MINSIZE\_THRESHOLD\_ALLOCATOR: name of the flexmalloc allocator that will be used when the size of the allocation is lower than the threshold.
+- ECOHMEM\_FLEXMALLOC\_MINSIZE\_THRESHOLD\: threshold (in number of bytes) for allocations to be considered by flexmalloc.
+- ECOHMEM\_FLEXMALLOC\_MEM\_CONFIG: path of the Flexmalloc configuration file.
+- ECOHMEM\_LOAD\_FLEXMALLOC\_SCRIPT: path of the script that will be used to load Flexmalloc.
+- ECOHMEM\_APP\_BINARY: path of your application program.
+- ECOHMEM\_APP\_ARGS: arguments that will be passed to your application.
+- ECOHMEM\_IS\_FORTRAN\_APP: describes if your application is written in Fortran or not (set to 1 or 0, respectively).
+- ECOHMEM\_IS\_MPI\_APP: set to 1 if your application uses MPI.
+- ECOHMEM\_IS\_OMP\_APP: set to 1 if your application uses OpenMP.
+- ECOHMEM\_IS\_PTHREAD\_APP: set to 1 if your application uses pthreads.
+- ECOHMEM\_MPIRUN: path of the mpirun program. Only used for MPI applications.
+- ECOHMEM\_MPIRUN\_FLAGS: arguments that will be passed to mpirun.
+- ECOHMEM\_APP\_RUNNER: path of the tool that should be used to run your application (e.g. numactl).
+- ECOHMEM\_APP\_RUNNER\_FLAGS: arguments for the runner tool.
 
-To allow passing flags and arguments with whitespace, the quotes and backslashes in the variables \*\_FLAGS and \*\_ARGS are interpreted as the command line shell would. For example, setting HA\_APP\_ARGS="a b1\ b2 c" or HA\_APP\_ARGS="a 'b1 b2' c" will pass 3 arguments to the application; a, "b1 b2", and c.
+To allow passing flags and arguments with whitespace, the quotes and backslashes in the variables \*\_FLAGS and \*\_ARGS are interpreted as the command line shell would. For example, setting ECOHMEM\_APP\_ARGS="a b1\ b2 c" or ECOHMEM\_APP\_ARGS="a 'b1 b2' c" will pass 3 arguments to the application; a, "b1 b2", and c.
 
 The clear\_env.src script can be sourced to clear the framework configuration variables from your command line environment.
 
@@ -122,11 +122,11 @@ The script can be run without any argument and it will take all the information 
 - --mpirun-flags
 - --mpi2prv-flags
 
-Once the script finishes the output directory (set by HA\_TRACE\_OUTPUT\_DIR or the --output-dir argument) will contain the Extrae trace, the postprocessed data and the application output and error logs.
+Once the script finishes the output directory (set by ECOHMEM\_TRACE\_OUTPUT\_DIR or the --output-dir argument) will contain the Extrae trace, the postprocessed data and the application output and error logs.
 
 ### 2. Memory object distribution
 
-The second step is done using the *generate\_distribution.sh* script, which is a wrapper around the hmem\_advisor program. This program uses the postprocessed profiling data to compute the cost heuristics for each object, and then distributes the objects across the available memory tiers. The hmem\_advisor accepts several arguments to configure its behavior (set by HA\_ADVISOR\_EXTRA\_ARGS or the --extra-args flag accepted by the script):
+The second step is done using the *generate\_distribution.sh* script, which is a wrapper around the hmem\_advisor program. This program uses the postprocessed profiling data to compute the cost heuristics for each object, and then distributes the objects across the available memory tiers. The hmem\_advisor accepts several arguments to configure its behavior (set by ECOHMEM\_ADVISOR\_EXTRA\_ARGS or the --extra-args flag accepted by the script):
 
 - --mem-config: path to configuration file describing the available memory tiers, required.
 - --loads: path of csv file with load accesses information, required.
