@@ -16,7 +16,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --obj-file=*)
-      arg_obj_file="${key#*=}"
+      arg_obj_file="${arg#*=}"
       shift
       ;;
     --app-args)
@@ -25,7 +25,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --app-args=*)
-      arg_app_args="${key#*=}"
+      arg_app_args="${arg#*=}"
       shift
       ;;
     --app-runner)
@@ -34,7 +34,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --app-runner=*)
-      arg_app_runner="${key#*=}"
+      arg_app_runner="${arg#*=}"
       shift
       ;;
     --runner-flags)
@@ -43,7 +43,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --runner-flags=*)
-      arg_runner_flags="${key#*=}"
+      arg_runner_flags="${arg#*=}"
       shift
       ;;
     --mpirun-flags)
@@ -52,7 +52,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --mpirun-flags=*)
-      arg_mpirun_flags="${key#*=}"
+      arg_mpirun_flags="${arg#*=}"
       shift
       ;;
     --flexmalloc-config)
@@ -61,7 +61,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --flexmalloc-config=*)
-      arg_fm_config="${key#*=}"
+      arg_fm_config="${arg#*=}"
       shift
       ;;
     --flexmalloc)

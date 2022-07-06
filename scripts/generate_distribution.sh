@@ -18,7 +18,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --trace-type=*)
-      arg_trace_type="${key#*=}"
+      arg_trace_type="${arg#*=}"
       shift
       ;;
     --output-file)
@@ -27,7 +27,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --output-file=*)
-      arg_output_file="${key#*=}"
+      arg_output_file="${arg#*=}"
       shift
       ;;
     --input-dir)
@@ -36,7 +36,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --input-dir=*)
-      arg_input_dir="${key#*=}"
+      arg_input_dir="${arg#*=}"
       shift
       ;;
     --mem-config)
@@ -45,7 +45,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --mem-config=*)
-      arg_mem_config="${key#*=}"
+      arg_mem_config="${arg#*=}"
       shift
       ;;
     --extra-arg)
@@ -54,7 +54,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --extra-arg=*)
-      arg_advisor_extra_args+=("${key#*=}")
+      arg_advisor_extra_args+=("${arg#*=}")
       shift
       ;;
     --force)

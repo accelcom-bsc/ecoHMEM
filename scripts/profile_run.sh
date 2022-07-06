@@ -16,7 +16,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --trace-name=*)
-      arg_trace_name="${key#*=}"
+      arg_trace_name="${arg#*=}"
       shift
       ;;
     --trace-type)
@@ -25,7 +25,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --trace-type=*)
-      arg_trace_type="${key#*=}"
+      arg_trace_type="${arg#*=}"
       shift
       ;;
     --output-dir)
@@ -34,7 +34,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --output-dir=*)
-      arg_output_dir="${key#*=}"
+      arg_output_dir="${arg#*=}"
       shift
       ;;
     --app-args)
@@ -43,7 +43,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --app-args=*)
-      arg_app_args="${key#*=}"
+      arg_app_args="${arg#*=}"
       shift
       ;;
     --app-runner)
@@ -52,7 +52,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --app-runner=*)
-      arg_app_runner="${key#*=}"
+      arg_app_runner="${arg#*=}"
       shift
       ;;
     --runner-flags)
@@ -61,7 +61,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --runner-flags=*)
-      arg_runner_flags="${key#*=}"
+      arg_runner_flags="${arg#*=}"
       shift
       ;;
     --mpirun-flags)
@@ -70,7 +70,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --mpirun-flags=*)
-      arg_mpirun_flags="${key#*=}"
+      arg_mpirun_flags="${arg#*=}"
       shift
       ;;
     --mpi2prv-flags)
@@ -79,7 +79,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --mpi2prv-flags=*)
-      arg_mpi2prv_flags="${key#*=}"
+      arg_mpi2prv_flags="${arg#*=}"
       shift
       ;;
     --force)
