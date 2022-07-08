@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
 if [[ -z $ECOHMEM_HOME ]]; then
-    echo "Error: ECOHMEM_HOME is not set, maybe you forgot to source the config file?"
+    echo "|HE| Error: ECOHMEM_HOME is not set, maybe you forgot to source the config file?"
     exit 1
 fi
 
@@ -62,7 +62,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     *)
-      ercho "Error: Unknown argument $arg"
+      err_msg "Error: Unknown argument $arg"
       exit 1
       ;;
   esac
@@ -83,10 +83,10 @@ if [[ -e $output_file ]]; then
     if [[ -f $output_file ]]; then
         if [[ $force == "n" ]]; then
             do_it=n
-            echo "Info: output file '$output_file' already exists, skipping processing (use --force to redo it)"
+            msg "Info: output file '$output_file' already exists, skipping processing (use --force to redo it)"
         fi
     else
-        ercho "Error: the path '$output_file' already exists but is not a regular file."
+        err_msg "Error: the path '$output_file' already exists but is not a regular file."
         exit 1
     fi
 fi
@@ -97,7 +97,7 @@ if [[ $do_it == "y" ]]; then
     elif [[ $trace_type == "loads_stores" ]]; then
         stores_arg=("--stores" "$postprocess_data_dir/$trace_type.store_miss_L1.csv")
     else
-        ercho "Error: unknown trace type: $trace_type"
+        err_msg "Error: unknown trace type: $trace_type"
         exit 1
     fi
 

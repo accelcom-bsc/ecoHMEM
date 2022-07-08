@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
 if [[ -z $ECOHMEM_HOME ]]; then
-    echo "Error: ECOHMEM_HOME is not set, maybe you forgot to source the config file?"
+    echo "|HE| Error: ECOHMEM_HOME is not set, maybe you forgot to source the config file?"
     exit 1
 fi
 
@@ -69,7 +69,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     *)
-      ercho "Error: Unknown argument $arg"
+      err_msg "Error: Unknown argument $arg"
       exit 1
       ;;
   esac
@@ -112,7 +112,7 @@ if [[ $ECOHMEM_IS_MPI_APP -eq 1 ]]; then
     cmd+=("$ECOHMEM_MPIRUN" "${mpirun_flags[@]}")
 else
     if [[ ! -z $arg_mpirun_flags ]]; then
-        echo "Warn: ignoring --mpirun-flags because the app is not configured as an MPI app"
+        msg "Warn: ignoring --mpirun-flags because the app is not configured as an MPI app"
     fi
 fi
 

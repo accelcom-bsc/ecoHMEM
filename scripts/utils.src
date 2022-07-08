@@ -1,7 +1,15 @@
 
+msg() {
+    echo "|EH| $@"
+}
+
+err_msg() {
+    >&2 echo "|EH| $@"
+}
+
 shlex_split() {
     if [[ $# -ne 2 ]]; then
-        ercho "Error: expected 2 parameters, the string to split and the output array's name"
+        err_msg "Error: shlex_split expects 2 parameters, the string to split and the output array's name"
         exit 1
     fi
 
@@ -14,6 +22,3 @@ shlex_split() {
     IFS=$OLDIFS
 }
 
-ercho() {
-    >&2 echo "$@"
-}
