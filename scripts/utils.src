@@ -14,11 +14,11 @@ shlex_split() {
     fi
 
     local str=$1
-    local -n arr=$2 #ref to caller's array
+    local -n arr_hebhfd73hfvghdh=$2 #ref to caller's array, got "warning: arr: circular name reference" if caller array is named arr, so we use a weird name
 
     OLDIFS=$IFS
-    IFS=$'\n'
-    arr=( $("${ECOHMEM_PYTHON-python3}" -c 'import shlex; import sys; print("\n".join(shlex.split(sys.argv[1])))' "$str") )
+    IFS=$'\x01'
+    arr_hebhfd73hfvghdh=( $("${ECOHMEM_PYTHON-python3}" -c 'import shlex; import sys; print("\x01".join(shlex.split(sys.argv[1])))' "$str") )
     IFS=$OLDIFS
 }
 
