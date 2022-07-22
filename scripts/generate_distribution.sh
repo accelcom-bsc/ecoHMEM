@@ -79,19 +79,39 @@ postprocess_data_dir="$input_dir/postprocessed_data"
 
 
 do_it=y
-if [[ -e $output_file ]]; then
-    if [[ -f $output_file ]]; then
-        if [[ $force == "n" ]]; then
-            do_it=n
-            msg "Info: output file '$output_file' already exists, skipping processing (use --force to redo it)"
+if [[ -z "$output_file" ]]; then
+    err_msg "Error: the output file path is empty, specify it using the corresponding env var or the --output-file flag."
+    exit 1
+else
+    if [[ -e "$output_file" ]]; then
+        if [[ -f "$output_file" ]]; then
+            if [[ $force == "n" ]]; then
+                do_it=n
+                msg "Info: output file '$output_file' already exists, skipping processing (use --force to redo it)"
+            fi
+        else
+            err_msg "Error: the path '$output_file' already exists but is not a regular file."
+            exit 1
         fi
-    else
-        err_msg "Error: the path '$output_file' already exists but is not a regular file."
-        exit 1
     fi
 fi
 
 if [[ $do_it == "y" ]]; then
+    if [[ -z "$input_dir" ]]; then
+        err_msg "Error: the input directory path is empty, specify it using the corresponding env var or the --input-dir flag."
+        exit 1
+    else
+        if [[ ! -d "$input_dir" ]]; then
+            err_msg "Error: the input directory path '$input_dir' doesn't exist or is not a directory."
+            exit 1
+        else
+            if [[ ! -d "$postprocess_data_dir" ]]; then
+                err_msg "Error: the postprocessed data subdirectory '$postprocess_data_dir' doesn't exist or is not a directory."
+                exit 1
+            fi
+        fi
+    fi
+
     if [[ $trace_type == "loads" ]]; then
         stores_arg=()
     elif [[ $trace_type == "loads_stores" ]]; then
