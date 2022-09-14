@@ -147,7 +147,7 @@ Size <MB available per process> MBytes
 ```
 - memkind/pmem: Allocates data on persistent memory mounted as FSDAX.
 ```
-# Memory configuration for allocator memkind/pmem-fsdax
+# Memory configuration for allocator memkind/pmem
 @ </path/to/pmem 0> ... @ </path/to/pmem N>
 ```
 - memkind/hbwmalloc: HBW memory available in KNL processors
