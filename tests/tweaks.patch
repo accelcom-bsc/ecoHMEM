@@ -1,0 +1,32 @@
+diff -ru a/bats-core-1.7.0/libexec/bats-core/bats-exec-test b/bats-core-1.7.0/libexec/bats-core/bats-exec-test
+--- a/bats-core-1.7.0/libexec/bats-core/bats-exec-test	2022-05-14 02:17:11.000000000 +0200
++++ b/bats-core-1.7.0/libexec/bats-core/bats-exec-test	2022-07-18 16:26:44.613734775 +0200
+@@ -156,6 +156,9 @@
+     if [[ $BATS_PRINT_OUTPUT_ON_FAILURE && -n "${output:-}" ]]; then
+       printf "Last output:\n%s\n" "$output" >> "$BATS_OUT"
+     fi 
++    if [[ $BATS_PRINT_OUTPUT_ON_FAILURE && -n "${stderr:-}" ]]; then
++      printf "Last stderr:\n%s\n" "$stderr" >> "$BATS_OUT"
++    fi 
+ 
+     print_bats_out=1
+     status=1
+diff -ru a/bats-core-1.7.0/libexec/bats-core/bats-format-pretty b/bats-core-1.7.0/libexec/bats-core/bats-format-pretty
+--- a/bats-core-1.7.0/libexec/bats-core/bats-format-pretty	2022-05-14 02:17:11.000000000 +0200
++++ b/bats-core-1.7.0/libexec/bats-core/bats-format-pretty	2022-07-26 12:09:32.623084434 +0200
+@@ -79,6 +79,7 @@
+ 
+ pass() {
+   TIMING="${1:-}"
++  set_color 2
+   finish_test ' ✓ %s' "$name"
+   test_result=pass
+ }
+@@ -88,6 +89,7 @@
+   if [[ -n "$reason" ]]; then
+     reason=": $reason"
+   fi
++  set_color 3
+   BATS_ENABLE_TIMING='' finish_test ' - %s (skipped%s)' "$name" "$reason"
+   test_result=skip
+ }
