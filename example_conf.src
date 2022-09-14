@@ -17,6 +17,7 @@ export ECOHMEM_PARAMEDIR_CFG_GEN="$ECOHMEM_HOME/bin/cfg_gen"
 export ECOHMEM_LOAD_EXTRAE_SCRIPT="$ECOHMEM_HOME/scripts/load_extrae.sh"
 export ECOHMEM_PARAMEDIR=/apps/WXPARAVER/4.8.1/bin/paramedir
 export ECOHMEM_MPI2PRV=$ECOHMEM_EXTRAE_HOME/bin/mpi2prv
+#export ECOHMEM_PRINT_CMDS=1
 
 #export ECOHMEM_MPI2PRV_EXTRA_FLAGS="-no-translate-data-addresses"
 export ECOHMEM_MPI2PRV_EXTRA_FLAGS=""

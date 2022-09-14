@@ -116,4 +116,4 @@ fi
 
 cmd+=("$ECOHMEM_APP_BINARY" "${app_args[@]}")
 
-"${cmd[@]}"
+log_exec "${cmd[@]}"

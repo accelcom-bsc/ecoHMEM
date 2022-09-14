@@ -174,7 +174,7 @@ if [[ $do_run == "y" ]]; then
     cmd+=("$ECOHMEM_LOAD_EXTRAE_SCRIPT" "$output_dir" "$ECOHMEM_EXTRAE_XML"  "$ECOHMEM_APP_BINARY" "${app_args[@]}")
     
     set +e
-    "${cmd[@]}" > "$app_out_file" 2> "$app_err_file"
+    log_exec_out_err "${cmd[@]}"  "$app_out_file"  "$app_err_file"
     retcode=$?
     set -e
 
@@ -189,7 +189,7 @@ if [[ $do_run == "y" ]]; then
 
     # FIXME workaround for extrae output dir, the envar EXTRAE_FINAL_DIR doesn't seem to work
     set +e
-    mv *.prv *.pcf *.row set-0 TRACE.mpits TRACE.sym TRACE.spawn "$output_dir"
+    log_exec mv *.prv *.pcf *.row set-0 TRACE.mpits TRACE.sym TRACE.spawn "$output_dir"
     set -e
 fi
 
@@ -213,7 +213,7 @@ if [[ $do_merge == "y" ]]; then
     mpi2prv_extra_flags=()
     shlex_split "$mpi2prv_extra_flags_str" mpi2prv_extra_flags
 
-    "$ECOHMEM_MPI2PRV" -f "$output_dir/TRACE.mpits" -o "$trace_file" "${mpi2prv_extra_flags[@]}"
+    log_exec "$ECOHMEM_MPI2PRV" -f "$output_dir/TRACE.mpits" -o "$trace_file" "${mpi2prv_extra_flags[@]}"
 fi
 
 ##
@@ -237,9 +237,9 @@ fi
 if [[ $do_cfgs == "y" ]]; then
     msg "Info: generating paramedir config files"
     if [[ $trace_type == "loads" ]]; then
-        "$ECOHMEM_PARAMEDIR_CFG_GEN" -f --ld "$trace_pcf_file" "$paramedir_configs_dir"
+        log_exec "$ECOHMEM_PARAMEDIR_CFG_GEN" -f --ld "$trace_pcf_file" "$paramedir_configs_dir"
     elif [[ $trace_type == "loads_stores" ]]; then
-        "$ECOHMEM_PARAMEDIR_CFG_GEN" -f --ldst "$trace_pcf_file" "$paramedir_configs_dir"
+        log_exec "$ECOHMEM_PARAMEDIR_CFG_GEN" -f --ldst "$trace_pcf_file" "$paramedir_configs_dir"
     else
         err_msg "Error: unknown trace type: $trace_type"
         exit 1
@@ -267,16 +267,16 @@ fi
 if [[ $do_postpo == "y" ]]; then
     msg "Info: postprocessing profiling data"
     if [[ $trace_type == "loads" ]]; then
-        "$ECOHMEM_PARAMEDIR" "$trace_file" "$paramedir_configs_dir/ld_load-miss.cfg" "$postprocess_data_dir/$trace_type.load_miss.csv"
-        "$ECOHMEM_PARAMEDIR" "$trace_file" "$paramedir_configs_dir/ld_max-size.cfg"  "$postprocess_data_dir/$trace_type.sizes.csv"
+        log_exec "$ECOHMEM_PARAMEDIR" "$trace_file" "$paramedir_configs_dir/ld_load-miss.cfg" "$postprocess_data_dir/$trace_type.load_miss.csv"
+        log_exec "$ECOHMEM_PARAMEDIR" "$trace_file" "$paramedir_configs_dir/ld_max-size.cfg"  "$postprocess_data_dir/$trace_type.sizes.csv"
         
-        "$ECOHMEM_ALLOCSINFO" "$trace_file" > "$postprocess_data_dir/$trace_type.allocsinfo.json" 2> "$postprocess_data_dir/$trace_type.allocsinfo.err"
+        log_exec_out_err "$ECOHMEM_ALLOCSINFO" "$trace_file"  "$postprocess_data_dir/$trace_type.allocsinfo.json"  "$postprocess_data_dir/$trace_type.allocsinfo.err"
     elif [[ $trace_type == "loads_stores" ]]; then
-        "$ECOHMEM_PARAMEDIR" "$trace_file" "$paramedir_configs_dir/ldst_load-miss.cfg"       "$postprocess_data_dir/$trace_type.load_miss.csv"
-        "$ECOHMEM_PARAMEDIR" "$trace_file" "$paramedir_configs_dir/ldst_l1d-store-miss.cfg"  "$postprocess_data_dir/$trace_type.store_miss_L1.csv"
-        "$ECOHMEM_PARAMEDIR" "$trace_file" "$paramedir_configs_dir/ldst_max-size.cfg"        "$postprocess_data_dir/$trace_type.sizes.csv"
+        log_exec "$ECOHMEM_PARAMEDIR" "$trace_file" "$paramedir_configs_dir/ldst_load-miss.cfg"       "$postprocess_data_dir/$trace_type.load_miss.csv"
+        log_exec "$ECOHMEM_PARAMEDIR" "$trace_file" "$paramedir_configs_dir/ldst_l1d-store-miss.cfg"  "$postprocess_data_dir/$trace_type.store_miss_L1.csv"
+        log_exec "$ECOHMEM_PARAMEDIR" "$trace_file" "$paramedir_configs_dir/ldst_max-size.cfg"        "$postprocess_data_dir/$trace_type.sizes.csv"
 
-        "$ECOHMEM_ALLOCSINFO" "$trace_file" > "$postprocess_data_dir/$trace_type.allocsinfo.json" 2> "$postprocess_data_dir/$trace_type.allocsinfo.err"
+        log_exec_out_err "$ECOHMEM_ALLOCSINFO" "$trace_file"  "$postprocess_data_dir/$trace_type.allocsinfo.json"  "$postprocess_data_dir/$trace_type.allocsinfo.err"
     else
         err_msg "Error: unknown trace type: $trace_type"
         exit 1

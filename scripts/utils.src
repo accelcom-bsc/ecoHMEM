@@ -22,3 +22,42 @@ shlex_split() {
     IFS=$OLDIFS
 }
 
+log_exec() {
+    if [[ $ECOHMEM_PRINT_CMDS -eq 1 ]]; then
+        msg "Executing: ${@}"
+    fi
+    "$@"
+}
+
+log_exec_out() {
+    if [[ $# -lt 2 ]]; then
+        err_msg "Error: log_exec_out expects 2 or more parameters"
+        exit 1
+    fi
+    args=("$@")
+    #outidx=$(($#-1))
+    #outfile=${args[$outidx]}
+    outfile=${args[@]: -1:1}
+    cmdsize=$(($#-1))
+    cmd=( "${args[@]:0:cmdsize}" )
+    if [[ $ECOHMEM_PRINT_CMDS -eq 1 ]]; then
+        msg "Executing: ${cmd[@]} > $outfile"
+    fi
+    "${cmd[@]}" > "$outfile"
+}
+
+log_exec_out_err() {
+    if [[ $# -lt 3 ]]; then
+        err_msg "Error: log_exec_out_err expects 3 or more parameters"
+        exit 1
+    fi
+    args=("$@")
+    outfile=${args[@]: -2:1}
+    errfile=${args[@]: -1:1}
+    cmdsize=$(($#-2))
+    cmd=( "${args[@]:0:cmdsize}" )
+    if [[ $ECOHMEM_PRINT_CMDS -eq 1 ]]; then
+        msg "Executing: ${cmd[@]} > $outfile 2> $errfile"
+    fi
+    "${cmd[@]}" > "$outfile" 2> "$errfile"
+}

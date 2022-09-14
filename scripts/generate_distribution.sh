@@ -125,5 +125,5 @@ if [[ $do_it == "y" ]]; then
     advisor_extra_args=()
     shlex_split "$ECOHMEM_ADVISOR_EXTRA_ARGS" advisor_extra_args
 
-    "$ECOHMEM_PYTHON" "$ECOHMEM_ADVISOR" "${advisor_extra_args[@]}" "${arg_advisor_extra_args[@]}" --mem-config "$mem_config" --sizes "$postprocess_data_dir/$trace_type.sizes.csv" --loads "$postprocess_data_dir/$trace_type.load_miss.csv" "${stores_arg[@]}" --allocs-info "$postprocess_data_dir/$trace_type.allocsinfo.json" > $output_file
+    log_exec_out "$ECOHMEM_PYTHON" "$ECOHMEM_ADVISOR" "${advisor_extra_args[@]}" "${arg_advisor_extra_args[@]}" --mem-config "$mem_config" --sizes "$postprocess_data_dir/$trace_type.sizes.csv" --loads "$postprocess_data_dir/$trace_type.load_miss.csv" "${stores_arg[@]}" --allocs-info "$postprocess_data_dir/$trace_type.allocsinfo.json"  $output_file
 fi
