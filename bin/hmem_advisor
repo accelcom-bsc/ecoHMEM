@@ -55,9 +55,9 @@ def parseAllocInfoFile(fname):
 
     with open(fname) as infile:
         data = json.load(infile)
-    
+
     assert 'version' in data and data['version'] == 1
-    
+
     colnames = data['fields']
     dict_allocs = []
     for a in data['allocs']:
@@ -75,7 +75,7 @@ def parseAllocInfoFile(fname):
 def parseTimeslotsInfoFile(fname):
     with open(fname) as infile:
         data = json.load(infile)
-    
+
     assert 'version' in data and data['version'] == 1
 
     field_idx = {}
@@ -83,7 +83,7 @@ def parseTimeslotsInfoFile(fname):
     data['field_idx'] = field_idx
     for i,f in enumerate(data['fields']):
         field_idx[f] = i
-    
+
     return data
 
 
@@ -171,7 +171,7 @@ class memobject:
         self.size = int(math.ceil(size/float(pagesize)))
         self.ecu = ecu # EVOP specific,
         self.id = id # used as unique object ID
-        self.value = value 
+        self.value = value
         self.alloc_time = 0
         self.free_time = 0
 
@@ -245,7 +245,7 @@ def weight_objects(objects, systems, algorithm, metric, worst):
 
 def get_distribution(objects, systems, algorithm, metric):
     distribution = [None] * len(systems)
-    
+
     new_objects = [obj for obj in objects]
 
     for i in range(len(systems)-1):
@@ -265,7 +265,7 @@ def get_distribution(objects, systems, algorithm, metric):
 
     for placement in distribution:
         placement.sort(key=lambda x: x.callstack)
-        
+
     return distribution
 
 
@@ -275,12 +275,12 @@ def fit_extra_objects(distribution, systems, allocs_info, app, proc, conc_activi
             return memobj.id
         return allocs_info['callstacks'].get(memobj.callstack, -1)
 
-    dram_idx = [i for i,s in enumerate(systems) if s.name == 'DRAM'][0]    
+    dram_idx = [i for i,s in enumerate(systems) if s.name == 'DRAM'][0]
     selected_oids = [get_obj_id(o) for o in distribution[dram_idx]]
-    
+
     num_procs = len(set(a['proc'] for a in allocs_info['allocs']))
     limit = systems[dram_idx].realsize / float(num_procs)
-    
+
     assert len(selected_oids) == len(set(selected_oids)), "dups in selected_oids"
 
     # Group allocs (of selected app,proc) by object ID, as (timestamp, bytes delta) pairs
@@ -291,7 +291,7 @@ def fit_extra_objects(distribution, systems, allocs_info, app, proc, conc_activi
         # discard allocs with invalid free time
         if alloc['free_time'] <= alloc['alloc_time']:
             continue
-        
+
         obj_deltas = objs.setdefault(alloc['obj_id'], [])
 
         obj_deltas.append((alloc['alloc_time'], alloc['bytes']))
@@ -302,7 +302,7 @@ def fit_extra_objects(distribution, systems, allocs_info, app, proc, conc_activi
     for obj_id in sorted(objs):
         if obj_id < 0:
             continue
-        
+
         # merge deltas that have the same timestamp (realloc frees prev and allocates next in the same timestamp)
         deltas = {}
         for time,delta in objs[obj_id]:
@@ -338,19 +338,19 @@ def fit_extra_objects(distribution, systems, allocs_info, app, proc, conc_activi
 
 
     sel_oids_in_objs = [x for x in selected_oids if x in obj_ids]
-    
+
     idxs_sel_objs = list(sorted(obj_ids.index(x) for x in sel_oids_in_objs))
-    
+
     stacked_values = np.cumsum(merged_values, axis=1) # turn byte-deltas to actual count, per object
 
     sel_values = stacked_values[idxs_sel_objs][:]
     total = np.sum(sel_values, axis=0)
-    
+
     obj_values = {get_obj_id(o): o.value[0] for objs in distribution for o in objs}
 
     fits = []
     dont_fit = []
-    
+
     # iterate over remaining objects sorted by descending cost
     sorted_np_objs = list(sorted(np_objs.keys(), key=lambda x: obj_values.get(x, 0.), reverse=True))
     # if we have high concurrent activity objects information, put them first
@@ -370,7 +370,7 @@ def fit_extra_objects(distribution, systems, allocs_info, app, proc, conc_activi
             total = new_total
         else:
             dont_fit.append(oid)
-    
+
     objs_in_fits = [(memidx, o) for memidx,objs in enumerate(distribution) for o in objs if get_obj_id(o) in fits]
     for memidx,obj in objs_in_fits:
         assert memidx != dram_idx
@@ -380,6 +380,10 @@ def fit_extra_objects(distribution, systems, allocs_info, app, proc, conc_activi
 
 def bw_aware_replacement(distribution, systems, allocs_info):
     debug_bw_centric_allocation = False
+    def dbg(*args):
+        if debug_bw_centric_allocation:
+            print('DEBUG', *args)
+
     tagged_objects = {}
 
     for level in range(len(systems)):
@@ -387,14 +391,13 @@ def bw_aware_replacement(distribution, systems, allocs_info):
             if item.callstack in allocs_info['callstacks']:
                 item.id = allocs_info['callstacks'][item.callstack]
 
-        # Items out of advisor 
+        # Items out of advisor
         if level not in tagged_objects:
             tagged_objects[level] = {}
         for item in distribution[level]:
             tagged_objects[level][item.id] = memobject(item.callstack, item.loads, item.stores, item.realsize, item.ecu, item.id, item.value[0])
-            if debug_bw_centric_allocation == True:
-                print(item.id, item.callstack, item.value)
-    
+            dbg(item.id, item.callstack, item.value)
+
     count = 0
     for e in allocs_info['allocs']:
         found = 0
@@ -406,7 +409,7 @@ def bw_aware_replacement(distribution, systems, allocs_info):
                 e['level'] = level
                 e['value'] = tagged_objects[level][e['obj_id']].value
                 found = 1;
-                count += 1 
+                count += 1
                 break;
 
         if found == 0:
@@ -430,24 +433,11 @@ def bw_aware_replacement(distribution, systems, allocs_info):
                 else:
                     obj_instances[e['obj_id']]['inst'] = 1
                     obj_instances[e['obj_id']]['end'] = e['free_time']
-                     
-    
-    if debug_bw_centric_allocation == True:
-        #for objs in look_for_objs:
-        #    if objs in allocs_info['callstacks']:
-        #       obj_id_look_for.append(allocs_info['callstacks'][objs])
-        #
-        #for objs in changed_objs:
-        #    if objs in allocs_info['callstacks']:
-        #       obj_id_to_change.append(allocs_info['callstacks'][objs])
-        #
-        #print(obj_id_look_for)
-        #print(obj_id_to_change)
-        print("Object instances")
-        print(obj_instances)
-            
+
+
+    dbg("Object instances: ", obj_instances)
+
     e1 = {}
-    obj_inst = {}
 
     new_info = []
     for e in allocs_info['allocs']:
@@ -464,15 +454,8 @@ def bw_aware_replacement(distribution, systems, allocs_info):
         e['alive'] = (e['free_time'] - e['alloc_time']) / 10**9
         e['avail'] = {}
 
-        if e['loads']:
-            e['loadfreq'] = (float(e['loads']) * 10**12) / (int(e['free_time']) - int(e['alloc_time']))
-        else:
-            e['loadfreq'] = 0
-        
-        if e['stores']:
-            e['storefreq'] = (float(e['loads']) * 10**12) / (int(e['free_time']) - int(e['alloc_time']))
-        else:
-            e['storefreq'] = 0
+        e['loadfreq'] = (float(e['loads']) * 10**12) / (int(e['free_time']) - int(e['alloc_time'])) if e['loads'] else 0
+        e['storefreq'] = (float(e['stores']) * 10**12) / (int(e['free_time']) - int(e['alloc_time'])) if e['stores'] else 0
 
         e1 = e.copy()
         e1['event'] = 0
@@ -480,10 +463,11 @@ def bw_aware_replacement(distribution, systems, allocs_info):
         e1['ref'] = e
 
         new_info.append(e1)
-        
+
+
     for e in new_info:
         allocs_info['allocs'].append(e)
-        
+
     dram_size = 0
     pmem_size = 0
 
@@ -510,37 +494,35 @@ def bw_aware_replacement(distribution, systems, allocs_info):
     obj_dram_all = {}
     obj_pmem_all = {}
     obj_dram_active = {}
-    
+
     dram_load_bw  = 0
     dram_store_bw = 0
     pmem_load_bw  = 0
     pmem_store_bw = 0
 
-    for e in sorted(allocs_info['allocs'], key=lambda x:x['event_time']):
+    for e in sorted(allocs_info['allocs'], key=lambda x: x['event_time']):
         cur_time = e['event_time']
+        oid = e['obj_id']
 
         if e['level'] == 0:
-            if e['obj_id'] not in obj_dram_all:
-                obj_dram_all[e['obj_id']] = 1
-            else:
-                obj_dram_all[e['obj_id']] += 1
+            if oid not in obj_dram_all:
+                obj_dram_all[oid] = 0
+            obj_dram_all[oid] += 1
 
         if e['level'] == 1:
-            if e['obj_id'] not in obj_pmem_all:
-                obj_pmem_all[e['obj_id']] = 1
-            else:
-                obj_pmem_all[e['obj_id']] += 1
-        
+            if oid not in obj_pmem_all:
+                obj_pmem_all[oid] = 0
+            obj_pmem_all[oid] += 1
+
         if e['app'] == 1 and e['proc'] == 1 and e['event'] == 1:
             if e['level'] == 0: # If allocated to DRAM
                 dram_size += e['bytes']
                 dram_objects.append(e)
 
-                if e['obj_id'] not in obj_dram_active:
-                    obj_dram_active[e['obj_id']] = 1
-                else:
-                    obj_dram_active[e['obj_id']] += 1
-                
+                if oid not in obj_dram_active:
+                    obj_dram_active[oid] = 0
+                obj_dram_active[oid] += 1
+
                 if e['loadfreq']:
                     load_bw = e['loadfreq']
                     dram_load_bw += load_bw
@@ -548,28 +530,28 @@ def bw_aware_replacement(distribution, systems, allocs_info):
                 if e['storefreq']:
                     store_bw = e['storefreq']
                     dram_store_bw += store_bw
-                    
+
                 e['dram_bw'] = dram_load_bw
                 e['pmem_bw'] = pmem_load_bw
 
                 if e['loadfreq'] >= Th_RWB:
                     e['high_bw_alloc'] = 1
 
-                if int(dram_size) > DRAM_TH and e['obj_id'] not in obj_dram_overflow:
-                    obj_dram_overflow[e['obj_id']] = 1
+                if int(dram_size) > DRAM_TH and oid not in obj_dram_overflow:
+                    obj_dram_overflow[oid] = 1
                     e['fitting'] = 0
                     e['thrashing'] = 1
                 else:
-                    if e['obj_id'] in obj_dram_overflow:
-                        obj_dram_overflow[e['obj_id']] += 1
+                    if oid in obj_dram_overflow:
+                        obj_dram_overflow[oid] += 1
                         e['fitting'] = 0
                         e['thrashing'] += 1
 
                     else:
                         e['fitting'] = 1
 
-                        if e['obj_id'] in obj_instances :
-                            if obj_instances[e['obj_id']]['total_inst'] > Th_L or obj_instances[e['obj_id']]['inst'] > Th_L:
+                        if oid in obj_instances :
+                            if obj_instances[oid]['total_inst'] > Th_L or obj_instances[oid]['inst'] > Th_L:
                                 e['streaming'] = 1
 
             else: # If allocated to PMEM
@@ -599,16 +581,16 @@ def bw_aware_replacement(distribution, systems, allocs_info):
                 if e['loadfreq'] >= Th_D_RWB:
                     e['high_bw_alloc'] = 1
 
-                if e['obj_id'] in obj_instances :
-                    if obj_instances[e['obj_id']]['total_inst'] > Th_L or obj_instances[e['obj_id']]['inst'] > Th_L:
+                if oid in obj_instances :
+                    if obj_instances[oid]['total_inst'] > Th_L or obj_instances[oid]['inst'] > Th_L:
                         e['streaming'] = 1
         else:
             if e['app'] == 1 and e['proc'] == 1 and e['event'] == 0:
                 if e['level'] == 0:
                     dram_size -= e['bytes']
 
-                    if e['obj_id'] in obj_dram_active and obj_dram_active[e['obj_id']] > 0:
-                        obj_dram_active[e['obj_id']] -= 1
+                    if oid in obj_dram_active and obj_dram_active[oid] > 0:
+                        obj_dram_active[oid] -= 1
 
                     if dram_load_bw:
                         dram_load_bw -= e['loadfreq']
@@ -626,82 +608,97 @@ def bw_aware_replacement(distribution, systems, allocs_info):
                         pmem_store_bw -= e['storefreq']
 
 
-        if debug_bw_centric_allocation == True and (e['loads'] != 0 or e['stores'] != 0) and e['event'] == 1 and e['app'] == 1 and e['proc'] == 1 and e['level'] == 0:
-            if e['obj_id'] not in obj_inst:
-                obj_inst[e['obj_id']] = 1
-            else:
-                obj_inst[e['obj_id']] += 1
+        if debug_bw_centric_allocation:
+            if (e['loads'] != 0 or e['stores'] != 0) and e['event'] == 1 and e['app'] == 1 and e['proc'] == 1:
+                if e['level'] == 0:
+                    obj_inst = {}
+                    if oid not in obj_inst:
+                        obj_inst[oid] = 0
+                    obj_inst[oid] += 1
 
-            print(("A1 Objs:" + str(len(dram_objects)) + " " + str(len(pmem_objects)) + " BW:" + str(dram_load_bw) + " " + str(dram_store_bw) + " " + str(pmem_load_bw) + " " + str(pmem_store_bw) + "PID: (" + str(e['app']) +  " " + str(e['proc']) + ") OBJ:" + str(e['obj_id']) + " INST:(" + str(obj_inst[e['obj_id']]) + ") " + systems[e['level']].name + " " + str(e['event']) + " " + str(e['event_time']) + " " + str(e['free_time']) + " " + str(e['alive']) + " " + str(e['bytes']) + " " + str(e['loads']) + " " + str(e['stores']) + " " + str(dram_size) + " " + str(pmem_size)) + "; Freq: " + str(e['loadfreq']) + " " + str(e['storefreq']) + "{inst:" + str(obj_dram_active[e['obj_id']]) + " fitting:" + str(e['fitting']) + " thrashing:" + str(e["thrashing"]) + " streaming:" + str(e["streaming"]) + " bandwidth:" + str(e["high_bw_alloc"]) + "}")
-        else:
-            if debug_bw_centric_allocation == True and (e['loads'] != 0 or e['stores'] != 0) and e['event'] == 1 and e['app'] == 1 and e['proc'] == 1 and e['level'] == 1:
-                print(("B1 Objs:" + " BW:" + str(dram_load_bw) + " " + str(dram_store_bw) + " " + str(pmem_load_bw) + " " + str(pmem_store_bw) +"OBJ:" + str(e['obj_id']) + " " + systems[e['level']].name + " " + str(e['event']) + " " + str(e['event_time']) + " " + str(e['free_time']) + " " + str(e['alive']) + " " + str(e['bytes']) + " " + str(e['loads']) + " " + str(e['stores']) + " " + str(dram_size) + " " + str(pmem_size)) + "; Freq: " + str(e['loadfreq']) + " " + str(e['storefreq']) + "{fitting:" + str(e['fitting']) + " thrashing:" + str(e["thrashing"]) + " streaming:" + str(e["streaming"]) + " bandwidth:" + str(e["high_bw_alloc"]) + "}")
-            
-    
+                    print(("A1 Objs:" + str(len(dram_objects)) + " " + str(len(pmem_objects))
+                        + " BW:" + str(dram_load_bw) + " " + str(dram_store_bw) + " " + str(pmem_load_bw) + " " + str(pmem_store_bw)
+                        + "PID: (" + str(e['app']) +  " " + str(e['proc']) + ") OBJ:" + str(oid) + " INST:(" + str(obj_inst[oid]) + ") "
+                        + systems[e['level']].name + " " + str(e['event']) + " " + str(e['event_time']) + " " + str(e['free_time']) + " "
+                        + str(e['alive']) + " " + str(e['bytes']) + " " + str(e['loads']) + " " + str(e['stores']) + " " + str(dram_size) + " " + str(pmem_size))
+                        + "; Freq: " + str(e['loadfreq']) + " " + str(e['storefreq']) + "{inst:" + str(obj_dram_active[oid]) + " fitting:" + str(e['fitting'])
+                        + " thrashing:" + str(e["thrashing"]) + " streaming:" + str(e["streaming"]) + " bandwidth:" + str(e["high_bw_alloc"]) + "}")
+
+                elif e['level'] == 1:
+                    print(("B1 Objs:" + " BW:" + str(dram_load_bw) + " " + str(dram_store_bw) + " " + str(pmem_load_bw) + " " + str(pmem_store_bw)
+                        + "OBJ:" + str(oid) + " " + systems[e['level']].name + " " + str(e['event']) + " " + str(e['event_time']) + " " + str(e['free_time']) + " "
+                        + str(e['alive']) + " " + str(e['bytes']) + " " + str(e['loads']) + " " + str(e['stores']) + " " + str(dram_size) + " " + str(pmem_size))
+                        + "; Freq: " + str(e['loadfreq']) + " " + str(e['storefreq']) + "{fitting:" + str(e['fitting']) + " thrashing:" + str(e["thrashing"])
+                        + " streaming:" + str(e["streaming"]) + " bandwidth:" + str(e["high_bw_alloc"]) + "}")
+
+
     fit_size = 0
     dram_replacement = {}
     pmem_move = {}
-    
+
     #TODO Take bandwidth calculation into account
     for do in dram_objects:
+        oid = do['obj_id']
         if do['fitting'] == 1 and do['pmem_bw'] < Th_R_L:
             if do['bytes'] >= fit_size:
-                fit_size = do['bytes'] 
+                fit_size = do['bytes']
 
-            if do['obj_id'] not in dram_replacement:
-                dram_replacement[do['obj_id']] = {}
-                dram_replacement[do['obj_id']]['alloc'] = do['event_time'] 
-                dram_replacement[do['obj_id']]['free']  = do['free_time'] 
-                dram_replacement[do['obj_id']]['bytes'] = do['bytes'] 
-                dram_replacement[do['obj_id']]['loads'] = do['loads'] 
-                dram_replacement[do['obj_id']]['stores'] = do['stores'] 
-                dram_replacement[do['obj_id']]['total_instances'] = obj_instances[do['obj_id']]['total_inst']
-                dram_replacement[do['obj_id']]['instances'] = obj_instances[do['obj_id']]['inst']
-                dram_replacement[do['obj_id']]['avail'] = {}
-                dram_replacement[do['obj_id']]['done'] = False
-                dram_replacement[do['obj_id']]['secondchance'] = False
+            if oid not in dram_replacement:
+                dram_replacement[oid] = {}
+                dram_replacement[oid]['alloc'] = do['event_time']
+                dram_replacement[oid]['free']  = do['free_time']
+                dram_replacement[oid]['bytes'] = do['bytes']
+                dram_replacement[oid]['loads'] = do['loads']
+                dram_replacement[oid]['stores'] = do['stores']
+                dram_replacement[oid]['total_instances'] = obj_instances[oid]['total_inst']
+                dram_replacement[oid]['instances'] = obj_instances[oid]['inst']
+                dram_replacement[oid]['avail'] = {}
+                dram_replacement[oid]['done'] = False
+                dram_replacement[oid]['secondchance'] = False
 
             if do['streaming'] == 1 and do['high_bw_alloc'] == 1 and do['stores'] == 0:
-                if do['obj_id'] not in pmem_move:
-                    pmem_move[do['obj_id']] = 1 
+                if oid not in pmem_move:
+                    pmem_move[oid] = 1
 
     pmem_replacement = {}
 
     dram_move = {}
 
     for do in pmem_objects:
-        if do['obj_id'] not in pmem_replacement and ((do['thrashing'] == 1 and do['pmem_bw'] > Th_R_L) or (do['loads'] > 0 and do['pmem_bw'] > Th_R) or (do['loads'] > 0 and do['stores'] > 0 and do['pmem_bw'] > Th_R_LL)):
-            pmem_replacement[do['obj_id']] = {}
-            pmem_replacement[do['obj_id']]['alloc'] = do['event_time'] 
-            pmem_replacement[do['obj_id']]['free']  = do['free_time'] 
-            pmem_replacement[do['obj_id']]['bytes'] = do['bytes'] 
-            pmem_replacement[do['obj_id']]['loads'] = do['loads'] 
-            pmem_replacement[do['obj_id']]['stores'] = do['stores'] 
-            pmem_replacement[do['obj_id']]['total_instances'] = obj_instances[do['obj_id']]['total_inst']
-            pmem_replacement[do['obj_id']]['instances'] = obj_instances[do['obj_id']]['inst']
-            pmem_replacement[do['obj_id']]['delta'] = do['delta']
-            pmem_replacement[do['obj_id']]['avail'] = {}
-            pmem_replacement[do['obj_id']]['done'] = False
-            pmem_replacement[do['obj_id']]['secondchance'] = False
-            pmem_replacement[do['obj_id']]['futuresize'] = 0
+        oid = do['obj_id']
+        if oid not in pmem_replacement and ((do['thrashing'] == 1 and do['pmem_bw'] > Th_R_L) or (do['loads'] > 0 and do['pmem_bw'] > Th_R) or (do['loads'] > 0 and do['stores'] > 0 and do['pmem_bw'] > Th_R_LL)):
+            pmem_replacement[oid] = {}
+            pmem_replacement[oid]['alloc'] = do['event_time']
+            pmem_replacement[oid]['free']  = do['free_time']
+            pmem_replacement[oid]['bytes'] = do['bytes']
+            pmem_replacement[oid]['loads'] = do['loads']
+            pmem_replacement[oid]['stores'] = do['stores']
+            pmem_replacement[oid]['total_instances'] = obj_instances[oid]['total_inst']
+            pmem_replacement[oid]['instances'] = obj_instances[oid]['inst']
+            pmem_replacement[oid]['delta'] = do['delta']
+            pmem_replacement[oid]['avail'] = {}
+            pmem_replacement[oid]['done'] = False
+            pmem_replacement[oid]['secondchance'] = False
+            pmem_replacement[oid]['futuresize'] = 0
 
         if do['streaming'] == 1 and do['high_bw_alloc'] == 1 and do['stores'] == 0:
-            if do['obj_id'] not in dram_move:
-                pmem_replacement[do['obj_id']] = {}
-                pmem_replacement[do['obj_id']]['alloc'] = do['event_time'] 
-                pmem_replacement[do['obj_id']]['free']  = do['free_time'] 
-                pmem_replacement[do['obj_id']]['bytes'] = do['bytes'] 
-                pmem_replacement[do['obj_id']]['loads'] = do['loads'] 
-                pmem_replacement[do['obj_id']]['stores'] = do['stores'] 
-                pmem_replacement[do['obj_id']]['total_instances'] = obj_instances[do['obj_id']]['total_inst']
-                pmem_replacement[do['obj_id']]['instances'] = obj_instances[do['obj_id']]['inst']
-                pmem_replacement[do['obj_id']]['delta'] = do['delta']
-                pmem_replacement[do['obj_id']]['avail'] = {}
-                pmem_replacement[do['obj_id']]['done'] = False
-                pmem_replacement[do['obj_id']]['secondchance'] = False
-                pmem_replacement[do['obj_id']]['futuresize'] = 0
+            if oid not in dram_move:
+                pmem_replacement[oid] = {}
+                pmem_replacement[oid]['alloc'] = do['event_time']
+                pmem_replacement[oid]['free']  = do['free_time']
+                pmem_replacement[oid]['bytes'] = do['bytes']
+                pmem_replacement[oid]['loads'] = do['loads']
+                pmem_replacement[oid]['stores'] = do['stores']
+                pmem_replacement[oid]['total_instances'] = obj_instances[oid]['total_inst']
+                pmem_replacement[oid]['instances'] = obj_instances[oid]['inst']
+                pmem_replacement[oid]['delta'] = do['delta']
+                pmem_replacement[oid]['avail'] = {}
+                pmem_replacement[oid]['done'] = False
+                pmem_replacement[oid]['secondchance'] = False
+                pmem_replacement[oid]['futuresize'] = 0
 
-    if debug_bw_centric_allocation == True:
+    # BEGIN DEBUG
+    if debug_bw_centric_allocation:
         print(len(dram_objects))
         print(len(pmem_objects))
         print()
@@ -710,47 +707,49 @@ def bw_aware_replacement(distribution, systems, allocs_info):
         print("These fit in DRAM")
         dram_replacement_debug = {}
         for do in dram_objects:
+            oid = do['obj_id']
             if do['fitting'] == 1 and do['pmem_bw'] < Th_R_L:
                 if do['bytes'] >= fit_size:
-                    fit_size = do['bytes'] 
+                    fit_size = do['bytes']
 
-                if do['obj_id'] not in dram_replacement_debug:
-                    dram_replacement_debug[do['obj_id']] = {}
-                    dram_replacement_debug[do['obj_id']]['alloc'] = do['event_time'] 
-                    dram_replacement_debug[do['obj_id']]['free']  = do['free_time'] 
-                    dram_replacement_debug[do['obj_id']]['bytes'] = do['bytes'] 
-                    dram_replacement_debug[do['obj_id']]['loads'] = do['loads'] 
-                    dram_replacement_debug[do['obj_id']]['stores'] = do['stores'] 
-                    dram_replacement_debug[do['obj_id']]['total_instances'] = obj_instances[do['obj_id']]['total_inst']
-                    dram_replacement_debug[do['obj_id']]['instances'] = obj_instances[do['obj_id']]['inst']
+                if oid not in dram_replacement_debug:
+                    dram_replacement_debug[oid] = {}
+                    dram_replacement_debug[oid]['alloc'] = do['event_time']
+                    dram_replacement_debug[oid]['free']  = do['free_time']
+                    dram_replacement_debug[oid]['bytes'] = do['bytes']
+                    dram_replacement_debug[oid]['loads'] = do['loads']
+                    dram_replacement_debug[oid]['stores'] = do['stores']
+                    dram_replacement_debug[oid]['total_instances'] = obj_instances[oid]['total_inst']
+                    dram_replacement_debug[oid]['instances'] = obj_instances[oid]['inst']
 
         for do in dram_replacement_debug:
             print(do, "SIZE:", dram_replacement_debug[do]['bytes'], "ALLOC:", dram_replacement_debug[do]['alloc'], "FREE:", dram_replacement_debug[do]['free'], "INST:", dram_replacement_debug[do]["instances"], dram_replacement_debug[do]["total_instances"], "LOADS:", dram_replacement_debug[do]['loads'], "STORES:", dram_replacement_debug[do]['stores'])
         #print(dram_replacement)
         print("Fit size", fit_size)
         print("These out of", len(pmem_objects), "goto PMEM")
-        
+
         pmem_replacement_debug = {}
         for do in pmem_objects:
-            if do['obj_id'] not in pmem_replacement_debug and ((do['thrashing'] == 1 and do['pmem_bw'] > Th_R_L) or (do['loads'] > 0 and do['pmem_bw'] > Th_R) or (do['loads'] > 0 and do['stores'] > 0 and do['pmem_bw'] > Th_R_LL)):
-                pmem_replacement_debug[do['obj_id']] = {}
-                pmem_replacement_debug[do['obj_id']]['alloc'] = do['event_time'] 
-                pmem_replacement_debug[do['obj_id']]['free']  = do['free_time'] 
-                pmem_replacement_debug[do['obj_id']]['bytes'] = do['bytes'] 
-                pmem_replacement_debug[do['obj_id']]['loads'] = do['loads'] 
-                pmem_replacement_debug[do['obj_id']]['stores'] = do['stores'] 
-                pmem_replacement_debug[do['obj_id']]['pmem_bw'] = do['pmem_bw'] 
-                pmem_replacement_debug[do['obj_id']]['total_instances'] = obj_instances[do['obj_id']]['total_inst']
-                pmem_replacement_debug[do['obj_id']]['instances'] = obj_instances[do['obj_id']]['inst']
-                pmem_replacement_debug[do['obj_id']]['delta'] = do['delta']
+            oid = do['obj_id']
+            if oid not in pmem_replacement_debug and ((do['thrashing'] == 1 and do['pmem_bw'] > Th_R_L) or (do['loads'] > 0 and do['pmem_bw'] > Th_R) or (do['loads'] > 0 and do['stores'] > 0 and do['pmem_bw'] > Th_R_LL)):
+                pmem_replacement_debug[oid] = {}
+                pmem_replacement_debug[oid]['alloc'] = do['event_time']
+                pmem_replacement_debug[oid]['free']  = do['free_time']
+                pmem_replacement_debug[oid]['bytes'] = do['bytes']
+                pmem_replacement_debug[oid]['loads'] = do['loads']
+                pmem_replacement_debug[oid]['stores'] = do['stores']
+                pmem_replacement_debug[oid]['pmem_bw'] = do['pmem_bw']
+                pmem_replacement_debug[oid]['total_instances'] = obj_instances[oid]['total_inst']
+                pmem_replacement_debug[oid]['instances'] = obj_instances[oid]['inst']
+                pmem_replacement_debug[oid]['delta'] = do['delta']
 
             else:
-                if do['obj_id'] in pmem_replacement_debug:
-                   pmem_replacement_debug[do['obj_id']]['free'] = do['free_time']
-         
+                if oid in pmem_replacement_debug:
+                   pmem_replacement_debug[oid]['free'] = do['free_time']
+
         for do in pmem_replacement_debug:
             print(do, "SIZE:", pmem_replacement_debug[do]['bytes'], "ALLOC:", pmem_replacement_debug[do]['alloc'], "FREE:", pmem_replacement_debug[do]['free'], "INST:", pmem_replacement_debug[do]["instances"], pmem_replacement_debug[do]["total_instances"], "LOADS:", pmem_replacement_debug[do]['loads'], "STORES:", pmem_replacement_debug[do]['stores'], "PMEM BW:", pmem_replacement_debug[do]['pmem_bw'], "DELTA:", pmem_replacement_debug[do]['delta'])
-               
+
         print()
         print(target_objects)
         print(replacement_objects)
@@ -758,24 +757,25 @@ def bw_aware_replacement(distribution, systems, allocs_info):
         print(obj_dram_overflow)
         print(obj_dram_all)
         print(obj_pmem_all)
-    
+
         print("PMEM Replacement" )
         print(sorted(pmem_replacement, key=lambda x:pmem_replacement[x]['stores'], reverse=True))
         print("DRAM Replacement" )
         print(sorted(dram_replacement, key=lambda x:dram_replacement[x]['stores'], reverse=True))
+    # END DEBUG
 
-    
+
     # Algo for replacement candidate
     alloc_time_line = []
 
     for mo in pmem_replacement:
-        alloc_time_line.append(pmem_replacement[mo]['alloc']) 
-    
+        alloc_time_line.append(pmem_replacement[mo]['alloc'])
+
     for mo in dram_replacement:
         for time in alloc_time_line:
             if time >= dram_replacement[mo]['alloc'] and time <= dram_replacement[mo]['free']:
                 dram_replacement[mo]['avail'][time] = dram_replacement[mo]['bytes']
-    
+
     avail_dram = {}
     for time in alloc_time_line:
         avail_dram[time] = 0
@@ -783,24 +783,21 @@ def bw_aware_replacement(distribution, systems, allocs_info):
             if time in dram_replacement[mo]['avail']:
                 avail_dram[time] += dram_replacement[mo]['avail'][time]
 
-    #print(avail_dram )
     dram_replacement_id = []
     pmem_replacement_id = []
     second_chance_replacement = []
 
-    #print("Chance 1" )
-    for pmem_id in sorted(pmem_replacement, key=lambda x:pmem_replacement[x]['stores'], reverse=True): 
-        if debug_bw_centric_allocation == True:
-            print(pmem_replacement[pmem_id]['alloc'])
+    for pmem_id in sorted(pmem_replacement, key=lambda x:pmem_replacement[x]['stores'], reverse=True):
+        dbg(pmem_replacement[pmem_id]['alloc'])
 
         for dram_id in dram_replacement:
             if dram_replacement[dram_id]['done'] == False and pmem_replacement[pmem_id]['alloc'] in dram_replacement[dram_id]['avail']:
                 if dram_replacement[dram_id]['avail'][pmem_replacement[pmem_id]['alloc']] >= pmem_replacement[pmem_id]['bytes']:
-                    if debug_bw_centric_allocation == True:
-                        print("Found", dram_id, "for", pmem_id, "allocation size", pmem_replacement[pmem_id]['bytes'])
+                    dbg("Found", dram_id, "for", pmem_id, "allocation size", pmem_replacement[pmem_id]['bytes'])
+
                     dram_replacement_id.append(dram_id)
                     pmem_replacement_id.append(pmem_id)
-                    dram_replacement[dram_id]['done'] = True 
+                    dram_replacement[dram_id]['done'] = True
                     dram_replacement[dram_id]['avail'][pmem_replacement[pmem_id]['alloc']] -= pmem_replacement[pmem_id]['bytes']
                     dram_replacement[dram_id]['bytes'] -= pmem_replacement[pmem_id]['bytes']
                     break
@@ -812,15 +809,14 @@ def bw_aware_replacement(distribution, systems, allocs_info):
                     pmem_replacement[pmem_id]['delta'] = pmem_replacement[pmem_id]['bytes']
 
 
-    if debug_bw_centric_allocation == True:
-        print("DRAM objects available for second chance")
-    for pmem_id in sorted(pmem_replacement, key=lambda x:pmem_replacement[x]['stores'], reverse=True): 
+    dbg("DRAM objects available for second chance")
+
+    for pmem_id in sorted(pmem_replacement, key=lambda x:pmem_replacement[x]['stores'], reverse=True):
         if pmem_replacement[pmem_id]['done'] == False and pmem_replacement[pmem_id]['secondchance'] == True and pmem_replacement[pmem_id]['delta'] > 0:
             for dram_id in dram_replacement:
                 if pmem_replacement[pmem_id]['alloc'] in dram_replacement[dram_id]['avail'] and dram_replacement[dram_id]['bytes'] > 0:
                     if (dram_replacement[dram_id]['bytes'] * obj_instances[dram_id]['total_inst']) >= pmem_replacement[pmem_id]['delta']:
-                        if debug_bw_centric_allocation == True:
-                            print("OBJ:", dram_id, "will be looked for the next chance Pmem size:", pmem_replacement[pmem_id]['delta'], "ID:", pmem_id, "DRAM size", dram_replacement[dram_id]['bytes'] * obj_instances[dram_id]['total_inst'], "bytes")
+                        dbg("OBJ:", dram_id, "will be looked for the next chance Pmem size:", pmem_replacement[pmem_id]['delta'], "ID:", pmem_id, "DRAM size", dram_replacement[dram_id]['bytes'] * obj_instances[dram_id]['total_inst'], "bytes")
 
                         if dram_replacement[dram_id]['bytes'] < pmem_replacement[pmem_id]['delta'] * obj_instances[pmem_id]['total_inst']:
                             dram_replacement[dram_id]['bytes'] = 0
@@ -840,8 +836,7 @@ def bw_aware_replacement(distribution, systems, allocs_info):
     # Place objects around DRAM and PMEM
     dram_replaced_obj = []
 
-    if debug_bw_centric_allocation:
-        print(dram_replacement_id)
+    dbg(dram_replacement_id)
 
     for mo in distribution[0]:
         if mo.id in dram_replacement_id:
@@ -858,9 +853,8 @@ def bw_aware_replacement(distribution, systems, allocs_info):
 
     pmem_replaced_obj = []
 
-    if debug_bw_centric_allocation:
-        print(pmem_replacement_id)
-        print(dram_move)
+    dbg(pmem_replacement_id)
+    dbg(dram_move)
 
     for mo in distribution[1]:
         if mo.id in pmem_replacement_id:
@@ -869,7 +863,7 @@ def bw_aware_replacement(distribution, systems, allocs_info):
         # If object is to moved to dram
         if mo.id in dram_move:
             pmem_replaced_obj.append(mo)
-    
+
     for mo in pmem_replaced_obj:
         mo_1 = copy.deepcopy(mo)
 
@@ -932,7 +926,7 @@ def main():
     # Mem Config
     with open(args.mem_config, 'rU') as fmem_config:
         lines = fmem_config.readlines()
-    
+
     for line in lines:
         if line[-1] == "\n":
             line = line[:-1]
@@ -1042,10 +1036,7 @@ def main():
         process = 10
         allocs_info = parseAllocInfoFile(args.allocs_info)
         ca_objs = None
-#        if args.timeslots_info:
-#            timeslots_info = parseTimeslotsInfoFile(args.timeslots_info)
-#            ca_objs = concurrent_activity_objects(timeslots_info, process)
-            
+
         fit_extra_objects(distribution, systems, allocs_info, 1, process, ca_objs)
         if not args.disable_bw_aware:
             bw_aware_replacement(distribution, systems, allocs_info)
