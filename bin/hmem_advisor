@@ -5,11 +5,11 @@
 
 import sys
 import locale
-import math
 import argparse
 import json
 import numpy as np
 import copy
+from core.coreTypes import *
 
 locale.setlocale( locale.LC_ALL, 'en_US.UTF-8' )
 
@@ -160,51 +160,6 @@ def pack_number(items, mems, i, lim):
             sizeLimit -= item.size
             if sizeLimit == 0: break
     return L
-
-
-class memobject:
-    def __init__(self, callstack, loads, stores, size, pagesize, ecu=-1, id=-1, value=-1):
-        self.callstack = callstack
-        self.loads = loads
-        self.stores = stores
-        self.realsize = size
-        self.size = int(math.ceil(size/float(pagesize)))
-        self.ecu = ecu # EVOP specific,
-        self.id = id # used as unique object ID
-        self.value = value
-        self.alloc_time = 0
-        self.free_time = 0
-
-
-    def __str__(self):
-        return str(self.ecu) + " " + str(self.loads) + " " + str(self.stores) + " " + str(self.realsize)
-
-    def __eq__(self, other):
-        return self.callstack == other.callstack
-
-    def comment(self):
-        if self.callstack.find (":") == - 1 and self.callstack.find("!") == -1:
-            return "# Static "
-        else:
-            return ""
-
-
-
-class memsystem:
-    def __init__(self, name, load_latency, store_latency, size, allocator, pagesize):
-        self.name = name
-        self.load_latency = load_latency
-        self.store_latency = store_latency
-        self.size = size
-        self.realsize = size
-        self.size = int(math.ceil(size/float(pagesize)))
-        self.allocator = allocator
-
-    def __str__(self):
-        return self.name + " " + str(self.load_latency) + " " + str(self.store_latency) + " " + str(self.realsize)
-
-    def __eq__(self, other):
-        return self.name == other.name
 
 
 def print_distribution(distribution, systems, bytes):
@@ -395,7 +350,7 @@ def bw_aware_replacement(distribution, systems, allocs_info):
         if level not in tagged_objects:
             tagged_objects[level] = {}
         for item in distribution[level]:
-            tagged_objects[level][item.id] = memobject(item.callstack, item.loads, item.stores, item.realsize, item.ecu, item.id, item.value[0])
+            tagged_objects[level][item.id] = MemoryObject(item.callstack, item.loads, item.stores, item.realsize, item.ecu, item.id, item.value[0])
             dbg(item.id, item.callstack, item.value)
 
     count = 0
@@ -938,7 +893,7 @@ def main():
         if args.rank_statistics == 'Average':
             size = size / args.num_ranks
         allocator = fields[4]
-        systems.append(memsystem(name, load_latency, store_latency, size, allocator, pagesize))
+        systems.append(MemorySystem(name, load_latency, store_latency, size, allocator, pagesize))
         if name == "DRAM":
             dram = systems[-1]
 
@@ -1020,11 +975,11 @@ def main():
                 totv_loads += loads
                 totv_stores += stores
                 tot_size += size
-                objects.append(memobject(callstack, loads, stores, size, pagesize))
+                objects.append(MemoryObject(callstack, loads, stores, size, pagesize))
             else:
-                useless.append(memobject(callstack, loads, stores, size, pagesize))
+                useless.append(MemoryObject(callstack, loads, stores, size, pagesize))
         else:
-            ignored.append(memobject(callstack, loads, stores, size, pagesize))
+            ignored.append(MemoryObject(callstack, loads, stores, size, pagesize))
 
 
     # Run!
