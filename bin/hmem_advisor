@@ -11,9 +11,11 @@ import numpy as np
 
 from misc.bw_aware import bw_aware_replacement
 from misc.utils import text2bytes
+
 from core.coreTypes import *
 from core.parser import Parser
 from core.builder import Builder 
+from core.engine import Engine
 
 locale.setlocale( locale.LC_ALL, 'en_US.UTF-8' )
 
@@ -61,121 +63,12 @@ def parseTimeslotsInfoFile(fname):
 
     return data
 
-def pack_precise(items, mems, i):
-    def itemSize(item): return item.size
-    def itemRealSize(item): return item.realsize
-
-    sizeLimit = mems[i].size
-    getSize = itemSize
-    P = {}
-    for nItems in range(len(items)+1):
-        for lim in range(sizeLimit+1):
-            if nItems == 0:
-                P[nItems,lim] = 0
-            elif getSize(items[nItems-1]) > lim:
-                P[nItems,lim] = P[nItems-1,lim]
-            else:
-                P[nItems,lim] = max(P[nItems-1,lim],
-                                    P[nItems-1,lim-getSize(items[nItems-1])] +
-                                    items[nItems-1].value[i])
-
-    L = []
-    nItems = len(items)
-    lim = sizeLimit
-    while nItems > 0:
-        nItems -= 1
-        if P[nItems+1,lim] != P[nItems,lim]:
-            L.append(items[nItems])
-            lim -= getSize(items[nItems])
-
-    return L
-
-
-def pack_greedy(items, mems, i):
-    sizeLimit = mems[i].size
-    items.sort(key=lambda x: x.value[i], reverse = True)
-    L = []
-    for item in items:
-        if item.size <= sizeLimit:
-            L.append(item)
-            sizeLimit -= item.size
-            if sizeLimit == 0: break
-    return L
-
-
-def pack_number(items, mems, i, lim):
-    sizeLimit = mems[i].size
-    L = []
-
-    for item in items:
-        if item.size <= sizeLimit and item.value[i] >= lim:
-            print(item.value, lim)
-            L.append(item)
-            sizeLimit -= item.size
-            if sizeLimit == 0: break
-    return L
-
-
 def print_distribution(distribution, systems, bytes):
     for j in range(len(systems)):
         print("System: ",j, " Objects: ",len(distribution[j]))
         for item in distribution[j]:
             print("Id: ",item.id, " Loads: ",item.loads, " Stores: ",item.stores, " Cost:", item.value)
         print("Occupancy: ", bytes[j] * 100 / systems[j].realsize)
-
-
-def weight_objects(objects, systems, algorithm, metric, worst):
-    if metric == "misses":
-        for item in objects:
-            item.value = [(item.loads + item.stores) / float(item.size)] * (len(systems)-1)
-    elif metric == "latencies":
-        for item in objects:
-            item.value = [0] * (len(systems)-1)
-            for i in range(len(systems)-1):
-                item.value[i] = (item.loads * systems[i+1].load_latency + item.stores * systems[i+1].store_latency) / float(item.size)
-
-    if algorithm.isdigit():
-        tot = 0
-        for item in objects:
-            tot += item.value[0]
-        for item in objects:
-            item.value[0] = item.value[0] * 100 / tot
-
-    # Be bad?
-    if worst:
-        max_value = 0
-        for i in range(len(systems)-1):
-            for item in objects:
-                if item.value[i] > max_value: max_value = item.value[i]
-            max_value += 1
-            for item in objects:
-                item.value[i] = max_value - item.value[i]
-
-
-def get_distribution(objects, systems, algorithm, metric):
-    distribution = [None] * len(systems)
-
-    new_objects = [obj for obj in objects]
-
-    for i in range(len(systems)-1):
-        if algorithm == "precise":
-            distribution[i] = pack_precise(new_objects, systems, i)
-        elif algorithm == "greedy":
-            distribution[i] = pack_greedy(new_objects, systems, i)
-        elif algorithm.isdigit():
-            distribution[i] = pack_number(new_objects, systems, i, float(algorithm))
-        new_objects[:] = [item for item in new_objects if item not in distribution[i]]
-    size = 0
-    for o in new_objects: size += o.size
-    if size > systems[-1].size:
-        print("Error, doesn't fit")
-        sys.exit(1)
-    distribution[-1] = new_objects
-
-    for placement in distribution:
-        placement.sort(key=lambda x: x.callstack)
-
-    return distribution
 
 
 def fit_extra_objects(distribution, systems, allocs_info, app, proc, conc_activity_objs):
@@ -335,9 +228,9 @@ def main():
     Builder.pagesize = pagesize 
     objects, ignored, useless = Builder.build(parser.loads_raw_obj, parser.stores_raw_obj, parser.sizes_raw_obj)
 
-    # Run!
-    weight_objects(objects, systems, args.algo, args.metric, args.worst)
-    distribution = get_distribution(objects, systems, args.algo, args.metric)
+    
+    engine = Engine(objects, systems, args.algo, args.metric, args.worst)
+    distribution = engine.execute()
 
 
     if args.allocs_info:
