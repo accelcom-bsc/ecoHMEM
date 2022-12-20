@@ -1,8 +1,10 @@
 #!/usr/bin/python
+import sys
+import json
+
 from .coreTypes import MemorySystem
 from .coreTypes import RawObject
 from misc.utils import text2bytes
-import sys 
 
 class Parser:
     loads_raw_obj = None
@@ -122,4 +124,48 @@ class Parser:
         
         return clean_items, weights
 
+
+def parseAllocInfoFile(fname):
+    col_parsers = {
+        'app': int,
+        'proc': int,
+        'func': int,
+        'alloc_time': int,
+        'free_time': int,
+        'bytes': int,
+        'obj_id': int,
+    }
+
+    with open(fname) as infile:
+        data = json.load(infile)
+
+    assert 'version' in data and data['version'] == 1
+
+    colnames = data['fields']
+    dict_allocs = []
+    for a in data['allocs']:
+        assert len(a) == len(colnames)
+        d = {col: col_parsers.get(col, lambda x: x)(v) for col,v in zip(colnames, a)}
+        dict_allocs.append(d)
+
+    data['allocs'] = dict_allocs
+
+    # add a reverse mapping from callstacks to numeric object IDs
+    data['callstacks'] = {cs[1+cs.find("["):cs.find("]")]: int(oid) for oid,cs in data['objects'].items()}
+
+    return data
+
+def parseTimeslotsInfoFile(fname):
+    with open(fname) as infile:
+        data = json.load(infile)
+
+    assert 'version' in data and data['version'] == 1
+
+    field_idx = {}
+    assert 'field_idx' not in data
+    data['field_idx'] = field_idx
+    for i,f in enumerate(data['fields']):
+        field_idx[f] = i
+
+    return data
 
