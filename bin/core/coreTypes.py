@@ -1,6 +1,19 @@
 #!/usr/bin/python
 import math
 
+class RawObject:
+    file_handler = None
+    items = []
+    misses = [] 
+    sizes = []
+
+    def __init__(self, file_handler=None, items=[], weights=[], isSize=False):
+        self.file_handler = file_handler
+        self.items = items 
+        if isSize:
+            self.sizes = weights
+        else:    
+            self.misses = weights
 
 class MemoryObject:
     def __init__(self, callstack, loads, stores, size, pagesize, ecu=-1, id=-1, value
@@ -28,7 +41,6 @@ class MemoryObject:
             return "# Static "
         else:
             return ""
-
 
 class MemorySystem:
     def __init__(self, name, load_latency, store_latency, size, allocator, pagesize):
