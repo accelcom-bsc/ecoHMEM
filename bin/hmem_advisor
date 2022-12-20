@@ -8,9 +8,12 @@ import locale
 import argparse
 import json
 import numpy as np
-from core.coreTypes import *
-from core.parser import Parser 
+
 from misc.bw_aware import bw_aware_replacement
+from misc.utils import text2bytes
+from core.coreTypes import *
+from core.parser import Parser
+from core.builder import Builder 
 
 locale.setlocale( locale.LC_ALL, 'en_US.UTF-8' )
 
@@ -321,60 +324,16 @@ def main():
         print('For --rank-statistics=Average you also have to specify --num-ranks')
         sys.exit(1)
 
-    from misc.utils import text2bytes
 
-    objects = []
-    useless = []
-    ignored = []
     pagesize = text2bytes(args.page)
     
     parser = Parser(args)
     parser.parse()
 
-    items_loads, weights_loads = parser.loads_raw_obj.items, parser.loads_raw_obj.misses
-    items_stores, weights_stores = parser.stores_raw_obj.items, parser.stores_raw_obj.misses
-    items_sizes, weights_sizes = parser.sizes_raw_obj.items, parser.sizes_raw_obj.sizes
     systems = parser.mem_systems
- 
-    max_loads = 0
-    max_stores = 0
-    totv_loads = 0
-    totv_stores = 0
-    tot_size = 0
 
-    # build object store, not assuming items are sorted across loads, stores, sizes
-    # i.e. items_loads[i] doesn't necessarily correspond to items_sizes[i]
-    # using items in loads data as key across sizes and stores
-    for i in range(len(items_loads)):
-        callstack = items_loads[i]
-        loads = int(float(weights_loads[i]))
-        stores = 0
-        size = 0
-        try:
-            idx = items_sizes.index(items_loads[i])
-            size = int(float(weights_sizes[idx]))
-        except:
-            size = 0
-        if args.stores:
-            try:
-                idx = items_stores.index(items_loads[i])
-                stores = int(float(weights_stores[idx]))
-            except:
-                stores = 0
-        if not callstack == "Unresolved" and callstack.find("Memory object referenced by sampled address") == -1:
-            if (loads > 0 or stores > 0) and size > 0:
-                if loads > max_loads: max_loads = loads
-                if stores > max_stores: max_stores = stores
-                totv_loads += loads
-                totv_stores += stores
-                tot_size += size
-                objects.append(MemoryObject(callstack, loads, stores, size, pagesize))
-            else:
-                useless.append(MemoryObject(callstack, loads, stores, size, pagesize))
-        else:
-            ignored.append(MemoryObject(callstack, loads, stores, size, pagesize))
-
-    #raise Exception(objects)    
+    Builder.pagesize = pagesize 
+    objects, ignored, useless = Builder.build(parser.loads_raw_obj, parser.stores_raw_obj, parser.sizes_raw_obj)
 
     # Run!
     weight_objects(objects, systems, args.algo, args.metric, args.worst)
