@@ -15,28 +15,45 @@ from core.parser import Parser, parseAllocInfoFile, parseTimeslotsInfoFile
 from core.builder import Builder 
 from core.engine import Engine, fit_extra_objects
 
+from writers.file_writer import FileWriter
+from writers.stdout_writer import StdoutWriter
+
 locale.setlocale( locale.LC_ALL, 'en_US.UTF-8' )
 
-def parseTimeslotsInfoFile(fname):
-    with open(fname) as infile:
-        data = json.load(infile)
 
-    assert 'version' in data and data['version'] == 1
+def pipeline(args):
+    pagesize = text2bytes(args.page)
+    
+    parser = Parser(args)
+    parser.parse()
 
-    field_idx = {}
-    assert 'field_idx' not in data
-    data['field_idx'] = field_idx
-    for i,f in enumerate(data['fields']):
-        field_idx[f] = i
+    systems = parser.mem_systems
 
-    return data
+    Builder.pagesize = pagesize 
+    objects, ignored, useless = Builder.build(parser.loads_raw_obj, parser.stores_raw_obj, parser.sizes_raw_obj)
 
-def print_distribution(distribution, systems, bytes):
-    for j in range(len(systems)):
-        print("System: ",j, " Objects: ",len(distribution[j]))
-        for item in distribution[j]:
-            print("Id: ",item.id, " Loads: ",item.loads, " Stores: ",item.stores, " Cost:", item.value)
-        print("Occupancy: ", bytes[j] * 100 / systems[j].realsize)
+    
+    engine = Engine(objects, systems, args.algo, args.metric, args.worst)
+    distribution = engine.execute()
+
+
+    if args.allocs_info:
+        allocs_info = parseAllocInfoFile(args.allocs_info)
+        process = 10
+        ca_objs = None
+        fit_extra_objects(distribution, systems, allocs_info, 1, process, ca_objs)
+
+        # make bw_aware disabled by default -- add an enabler!!
+        if not args.disable_bw_aware:
+            bw_aware_replacement(distribution, systems, allocs_info)
+
+    if args.out:
+        writer = FileWriter(args)
+    else:
+       writer = StdoutWriter(args)
+   
+    writer.write(distribution, systems)
+
 
 
 def main():
@@ -59,6 +76,7 @@ def main():
     parser.add_argument('--allocs-info')
     parser.add_argument('--num-ranks', type=int)
     parser.add_argument('--disable-bw-aware', action='store_true', default=False)
+    parser.add_argument('--out', type=str)
     args = parser.parse_args()
 
     # Sanity checks
@@ -76,73 +94,8 @@ def main():
         sys.exit(1)
 
 
-    pagesize = text2bytes(args.page)
-    
-    parser = Parser(args)
-    parser.parse()
-
-    systems = parser.mem_systems
-
-    Builder.pagesize = pagesize 
-    objects, ignored, useless = Builder.build(parser.loads_raw_obj, parser.stores_raw_obj, parser.sizes_raw_obj)
-
-    
-    engine = Engine(objects, systems, args.algo, args.metric, args.worst)
-    distribution = engine.execute()
-
-
-    if args.allocs_info:
-        allocs_info = parseAllocInfoFile(args.allocs_info)
-        process = 10
-        ca_objs = None
-        fit_extra_objects(distribution, systems, allocs_info, 1, process, ca_objs)
-
-        if not args.disable_bw_aware:
-            bw_aware_replacement(distribution, systems, allocs_info)
-
-
-    # print output
-    for i in range(len(systems)):
-        size = 0
-        if args.verbose:
-            print("--", systems[i].name, "-", systems[i].realsize, "bytes --")
-
-        if not args.verbose and not args.visualizer:
-            print("# Memory configuration for", systems[i].name, "with size", systems[i].realsize, "bytes")
-            # print("# Memory configuration for", systems[i].name, "with size", systems[i].realsize, "bytes and latency", dram.load_latency/systems[i].load_latency, "times faster than DRAM")
-
-        for mo in distribution[i]:
-            if not args.verbose:
-                if args.visualizer:
-                    print(mo.callstack + ';' + str(mo.realsize) + ';' + str(mo.loads))
-                else:
-                    print(mo.comment() + mo.callstack + " @ " + systems[i].allocator)
-            elif args.stores:
-                print(mo.callstack, "-", mo.loads, "loads -", mo.stores, "stores -", mo.realsize, "bytes", " - cost ", str(mo.value))
-            else:
-                print(mo.callstack, "-", mo.loads, "loads -", mo.realsize, "bytes", " - cost ", str(mo.value))
-            size += mo.realsize
-        if args.verbose:
-            print("--")
-            if not args.stores:
-                print(len(distribution[i]), "objects;", size, "bytes (" + str(size*100./systems[i].realsize) + "%);")
-            else:
-                print(len(distribution[i]), "objects;", size, "bytes (" + str(size*100./systems[i].realsize) + "%);")
-            print
-
-
-    if not args.verbose: sys.exit(0)
-
-    print("-- WHEREVER --")
-    size = 0
-    for mo in useless:
-        if args.stores:
-            print(mo.callstack, "-", mo.loads, "loads -", mo.stores, "stores -", mo.realsize, "bytes")
-        else:
-            print(mo.callstack, "-", mo.loads, "loads -", mo.realsize, "bytes")
-        size += mo.realsize
-    print("--")
-    print(len(useless), "objects;", size, "bytes")
+    # run core logic
+    pipeline(args)
 
 
 if __name__ == '__main__':
