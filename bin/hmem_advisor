@@ -24,7 +24,7 @@ def pipeline(args):
 
     mem_systems = parser.mem_systems
 
-    engine = Engine(objects, systems, args.algo, args.metric, args.worst)
+    engine = Engine(objects, mem_systems, args.algo, args.metric, args.worst)
     distribution = engine.execute()
 
     if args.allocs_info:
@@ -41,7 +41,7 @@ def pipeline(args):
     else:
         writer = StdoutWriter(args)
    
-    writer.write(distribution, systems)
+    writer.write(distribution, mem_systems)
 
 
 def main():
@@ -62,7 +62,7 @@ def main():
     parser.add_argument('--rank-statistics', type=str, default="Total")
     parser.add_argument('--visualizer', action='store_true', default=False)
     parser.add_argument('--allocs-info')
-    parser.add_argument('--num-ranks', type=int)
+    parser.add_argument('--num-ranks', type=int, default=0)
     parser.add_argument('--disable-bw-aware', action='store_true', default=False)
     parser.add_argument('--out', type=str)
     args = parser.parse_args()

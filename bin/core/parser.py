@@ -14,11 +14,13 @@ class Parser:
     latencies_raw_obj = None 
     mem_systems = []
     num_ranks = 0
+    rank = 0
     rank_stats = None
 
     def __init__(self, args):
-        self.num_ranks = args.rank
+        self.num_ranks = args.num_ranks
         self.rank_stats = args.rank_statistics
+        self.rank = args.rank       
 
         pagesize = text2bytes(args.page)
         self.parseConfig(args.mem_config, pagesize)
@@ -64,6 +66,7 @@ class Parser:
         if removeZeroSizes:
             self._removeZeroSizes()
 
+
     def _removeZeroSizes(self):
         # Remove objects with 0-size
         toremove = []
@@ -108,8 +111,8 @@ class Parser:
             else:
                 clean_items.append(s[1+s.find("["):s.find("]")])
 
-        if self.num_ranks > 0:
-            for i in range(num_ranks):
+        if self.rank > 0:
+            for i in range(self.ranks):
                  line = inputFile.readline()
         else:
             while line != "" and self.rank_stats not in line: 
@@ -122,7 +125,7 @@ class Parser:
         if len(items) != len(weights):
             print("Error, length mismatch")
             sys.exit(1)
-        
+       
         return clean_items, weights
 
 
