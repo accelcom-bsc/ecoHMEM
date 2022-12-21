@@ -1,59 +1,47 @@
-#! /usr/bin/python
-
-# GPL licensed
-
+#!/usr/bin/python
 
 import sys
-import locale
 import argparse
 
-from misc.bw_aware import bw_aware_replacement
-from misc.utils import text2bytes
-
 from core.coreTypes import *
-from core.parser import Parser, parseAllocInfoFile, parseTimeslotsInfoFile
+from core.parser import Parser, parseAllocInfoFile
 from core.builder import Builder 
 from core.engine import Engine, fit_extra_objects
 
 from writers.file_writer import FileWriter
 from writers.stdout_writer import StdoutWriter
 
-locale.setlocale( locale.LC_ALL, 'en_US.UTF-8' )
+from misc.bw_aware import bw_aware_replacement
+from misc.utils import text2bytes
 
 
 def pipeline(args):
-    pagesize = text2bytes(args.page)
-    
     parser = Parser(args)
     parser.parse()
-
-    systems = parser.mem_systems
-
-    Builder.pagesize = pagesize 
+    
+    Builder.pagesize = text2bytes(args.page)
     objects, ignored, useless = Builder.build(parser.loads_raw_obj, parser.stores_raw_obj, parser.sizes_raw_obj)
 
-    
+    mem_systems = parser.mem_systems
+
     engine = Engine(objects, systems, args.algo, args.metric, args.worst)
     distribution = engine.execute()
-
 
     if args.allocs_info:
         allocs_info = parseAllocInfoFile(args.allocs_info)
         process = 10
         ca_objs = None
-        fit_extra_objects(distribution, systems, allocs_info, 1, process, ca_objs)
+        fit_extra_objects(distribution, mem_systems, allocs_info, 1, process, ca_objs)
 
-        # make bw_aware disabled by default -- add an enabler!!
         if not args.disable_bw_aware:
-            bw_aware_replacement(distribution, systems, allocs_info)
+            bw_aware_replacement(distribution, mem_systems, allocs_info)
 
     if args.out:
         writer = FileWriter(args)
     else:
-       writer = StdoutWriter(args)
+        writer = StdoutWriter(args)
    
     writer.write(distribution, systems)
-
 
 
 def main():
@@ -94,7 +82,7 @@ def main():
         sys.exit(1)
 
 
-    # run core logic
+    # launch core logic
     pipeline(args)
 
 
