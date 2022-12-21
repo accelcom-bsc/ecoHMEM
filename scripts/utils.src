@@ -37,13 +37,13 @@ log_exec_out() {
     args=("$@")
     #outidx=$(($#-1))
     #outfile=${args[$outidx]}
-    outfile=${args[@]: -1:1}
-    cmdsize=$(($#-1))
+    #outfile=${args[@]: -1:1}
+    cmdsize=$(($#))
     cmd=( "${args[@]:0:cmdsize}" )
     if [[ $ECOHMEM_PRINT_CMDS -eq 1 ]]; then
-        msg "Executing: ${cmd[@]} > $outfile"
+        msg "Executing: ${cmd[@]}"
     fi
-    "${cmd[@]}" > "$outfile"
+    "${cmd[@]}"
 }
 
 log_exec_out_err() {
