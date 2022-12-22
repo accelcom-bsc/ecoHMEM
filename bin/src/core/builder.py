@@ -1,6 +1,4 @@
-#!/usr/bin/python
-
-from coreTypes import MemoryObject
+from core.core_types import MemoryObject
 
 class Builder:
     max_loads = 0

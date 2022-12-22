@@ -1,10 +1,7 @@
-#!/usr/bin/python
-
 import sys
 import json
 
-from coreTypes import MemorySystem
-from coreTypes import RawObject
+from core.core_types import RawObject, MemorySystem
 from misc.utils import text2bytes
 
 class Parser:

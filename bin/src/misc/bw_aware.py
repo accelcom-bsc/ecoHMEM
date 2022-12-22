@@ -1,6 +1,5 @@
-#!/usr/bin/python
 import copy
-from coreTypes import MemoryObject
+from core.core_types import MemoryObject
 
 def bw_aware_replacement(distribution, systems, allocs_info):
     debug_bw_centric_allocation = False

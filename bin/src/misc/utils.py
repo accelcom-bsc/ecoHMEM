@@ -1,5 +1,3 @@
-#!/usr/bin/python
-
 def text2bytes(text):
     if text[-1] >= '0' and text[-1] <= '9':
         text = text + 'b'

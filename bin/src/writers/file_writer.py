@@ -1,5 +1,3 @@
-#!/usr/bin/python
-
 from core.writer import Writer
 
 class FileWriter(Writer):

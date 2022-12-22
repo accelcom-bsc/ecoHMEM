@@ -3,7 +3,7 @@
 import sys
 import argparse
 
-from core.coreTypes import *
+from core.core_types import *
 from core.parser import Parser, parseAllocInfoFile
 from core.builder import Builder 
 from core.engine import Engine, fit_extra_objects
