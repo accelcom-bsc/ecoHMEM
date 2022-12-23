@@ -1,22 +1,18 @@
-import numpy as np 
+import numpy as np
 
 class Engine:
-    objects = []
-    mem_systems = []
-    algorithm = None
-    metric = None
-    worst = None
 
-    def __init__(self, objects, mem_systems, algorithm, metric, worst):
-        self.objects = objects
+    def __init__(self, mem_systems, algorithm, metric, worst):
         self.mem_systems = mem_systems
         self.algorithm = algorithm
         self.metric = metric
-        self.worst = worst 
+        self.worst = worst
 
-    def execute(self):
+    def distribute_objects(self, objects):
+        self.objects = objects
         self.weight_objects()
         distribution = self.distribute()
+
         return distribution
 
     def weight_objects(self):
@@ -41,7 +37,7 @@ class Engine:
             max_value = 0
             for i in range(len(self.mem_systems)-1):
                 for item in self.objects:
-                    if item.value[i] > max_value: 
+                    if item.value[i] > max_value:
                         max_value = item.value[i]
                 max_value += 1
                 for item in self.objects:
@@ -59,16 +55,16 @@ class Engine:
                 distribution[i] = self._pack_greedy(new_objects, i)
             elif self.algorithm.isdigit():
                 distribution[i] = self._pack_number(new_objects, i, float(self.algorithm))
-            
+
             new_objects[:] = [item for item in new_objects if item not in distribution[i]]
 
         size = 0
-        for o in new_objects: 
+        for o in new_objects:
             size += o.size
 
         if size > self.mem_systems[-1].size:
             raise Exception("Error, doesn't fit")
-    
+
         distribution[-1] = new_objects
 
         for placement in distribution:
@@ -104,7 +100,7 @@ class Engine:
                 lim -= getSize(items[nItems])
 
         return L
-       
+
     def _pack_greedy(self, items, i):
         sizeLimit = self.mem_systems[i].size
         items.sort(key=lambda x: x.value[i], reverse = True)
@@ -115,12 +111,11 @@ class Engine:
                 sizeLimit -= item.size
                 if sizeLimit == 0: break
         return L
-            
-    
+
     def _pack_number(self, items, i, lim):
         sizeLimit = self.mem_systems[i].size
         L = []
-    
+
         for item in items:
             if item.size <= sizeLimit and item.value[i] >= lim:
                 print(item.value, lim)
@@ -237,4 +232,4 @@ def fit_extra_objects(distribution, systems, allocs_info, app, proc, conc_activi
         assert memidx != dram_idx
         distribution[dram_idx].append(obj)
         distribution[memidx].remove(obj)
- 
+

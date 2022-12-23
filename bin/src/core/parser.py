@@ -5,19 +5,14 @@ from core.core_types import RawObject, MemorySystem
 from misc.utils import text2bytes
 
 class Parser:
-    loads_raw_obj = None
-    stores_raw_obj = None
-    sizes_raw_obj = None
-    latencies_raw_obj = None 
-    mem_systems = []
-    num_ranks = 0
-    rank = 0
-    rank_stats = None
 
     def __init__(self, args):
         self.num_ranks = args.num_ranks
         self.rank_stats = args.rank_statistics
-        self.rank = args.rank       
+        self.rank = args.rank
+        self.allocs_info_arg = args.allocs_info
+        self.allocs_info = []
+        self.mem_systems = []
 
         pagesize = text2bytes(args.page)
         self.parseConfig(args.mem_config, pagesize)
@@ -25,17 +20,17 @@ class Parser:
         self.loads_raw_obj = RawObject(file_handler=args.loads)
         self.stores_raw_obj = RawObject(file_handler=args.stores)
         self.sizes_raw_obj = RawObject(file_handler=args.sizes, isSize=True)
-        
+
         #if args.lats:
         #    self.latencies_raw_obj = RawObject(args.lats)
         #else:
         self.latencies_raw_obj = RawObject()
 
-    def parseConfig(self, fmem_config_file, pagesize):
-        with open(fmem_config_file, 'rU') as fmem_config:
-            fmem_config_lines = fmem_config.readlines()
+    def parseConfig(self, mem_config_file, pagesize):
+        with open(mem_config_file, 'rU') as mem_config:
+            mem_config_lines = mem_config.readlines()
 
-        for line in fmem_config_lines:
+        for line in mem_config_lines:
             if line[-1] == "\n":
                 line = line[:-1]
             fields = line.split(",")
@@ -49,16 +44,19 @@ class Parser:
             self.mem_systems.append(MemorySystem(name, load_latency, store_latency, size, allocator, pagesize))
 
 
-    def parse(self, removeZeroSizes=True):
-        self.loads_raw_obj.items, self.loads_raw_obj.misses = self.parseInputFile(self.loads_raw_obj.file_handler)
-    
+    def parseInputFiles(self, removeZeroSizes=True):
+        self.loads_raw_obj.items, self.loads_raw_obj.misses = self.parseParamedirCSV(self.loads_raw_obj.file_handler)
+
         if self.stores_raw_obj.file_handler:
-            self.stores_raw_obj.items, self.stores_raw_obj.misses = self.parseInputFile(self.stores_raw_obj.file_handler)
-        
-        self.sizes_raw_obj.items, self.sizes_raw_obj.sizes = self.parseInputFile(self.sizes_raw_obj.file_handler)
-        
+            self.stores_raw_obj.items, self.stores_raw_obj.misses = self.parseParamedirCSV(self.stores_raw_obj.file_handler)
+
+        self.sizes_raw_obj.items, self.sizes_raw_obj.sizes = self.parseParamedirCSV(self.sizes_raw_obj.file_handler)
+
         if self.latencies_raw_obj.file_handler:
-            self.latencies_raw_obj.items, self.latencies_raw_obj.misses = self.parseInputFile(self.latencies_raw_obj.file_handler)
+            self.latencies_raw_obj.items, self.latencies_raw_obj.misses = self.parseParamedirCSV(self.latencies_raw_obj.file_handler)
+
+        if self.allocs_info_arg:
+            self.allocs_info = self.parseAllocInfoFile(self.allocs_info_arg)
 
         if removeZeroSizes:
             self._removeZeroSizes()
@@ -91,9 +89,9 @@ class Parser:
             check_equal = len(self.loads_raw_obj.items) == len(self.sizes_raw_obj.items)
         if not check_equal:
             raise Exception("Error: Items are not same across loads,stores,sizes")
-            
 
-    def parseInputFile(self, inputFile):
+
+    def parseParamedirCSV(self, inputFile):
         line = inputFile.readline()
         items = line.split("\t")[1:-1]
 
@@ -112,49 +110,50 @@ class Parser:
             for i in range(self.ranks):
                  line = inputFile.readline()
         else:
-            while line != "" and self.rank_stats not in line: 
+            while line != "" and self.rank_stats not in line:
                 line = inputFile.readline()
         if line == "":
             raise Exception("Error, premature EOF ", inputFile, self.num_ranks, self.rank_stats)
 
         weights = line.split("\t")[1:-1]
-        
+
         if len(items) != len(weights):
             print("Error, length mismatch")
             sys.exit(1)
-       
+
         return clean_items, weights
 
 
-def parseAllocInfoFile(fname):
-    col_parsers = {
-        'app': int,
-        'proc': int,
-        'func': int,
-        'alloc_time': int,
-        'free_time': int,
-        'bytes': int,
-        'obj_id': int,
-    }
+    def parseAllocInfoFile(self, fname):
+        col_parsers = {
+          'app': int,
+          'proc': int,
+          'func': int,
+          'alloc_time': int,
+          'free_time': int,
+          'bytes': int,
+          'obj_id': int,
+        }
 
-    with open(fname) as infile:
-        data = json.load(infile)
+        with open(fname) as infile:
+             data = json.load(infile)
 
-    assert 'version' in data and data['version'] == 1
+        assert 'version' in data and data['version'] == 1
 
-    colnames = data['fields']
-    dict_allocs = []
-    for a in data['allocs']:
-        assert len(a) == len(colnames)
-        d = {col: col_parsers.get(col, lambda x: x)(v) for col,v in zip(colnames, a)}
-        dict_allocs.append(d)
+        colnames = data['fields']
+        dict_allocs = []
+        for a in data['allocs']:
+            assert len(a) == len(colnames)
+            d = {col: col_parsers.get(col, lambda x: x)(v) for col,v in zip(colnames, a)}
+            dict_allocs.append(d)
 
-    data['allocs'] = dict_allocs
+        data['allocs'] = dict_allocs
 
-    # add a reverse mapping from callstacks to numeric object IDs
-    data['callstacks'] = {cs[1+cs.find("["):cs.find("]")]: int(oid) for oid,cs in data['objects'].items()}
+        # add a reverse mapping from callstacks to numeric object IDs
+        data['callstacks'] = {cs[1+cs.find("["):cs.find("]")]: int(oid) for oid,cs in data['objects'].items()}
 
-    return data
+        return data
+
 
 def parseTimeslotsInfoFile(fname):
     with open(fname) as infile:

@@ -4,44 +4,94 @@ import sys
 import argparse
 
 from core.core_types import *
-from core.parser import Parser, parseAllocInfoFile
-from core.builder import Builder 
+from core.parser import Parser
 from core.engine import Engine, fit_extra_objects
 
-from writers.file_writer import FileWriter
-from writers.stdout_writer import StdoutWriter
+from core.writer import write_result
 
 from misc.bw_aware import bw_aware_replacement
 from misc.utils import text2bytes
 
 
+def build_objects(loads_raw_obj, stores_raw_obj, sizes_raw_obj, pagesize):
+    objects = []
+    ignored = []
+    useless = []
+
+    items_loads = loads_raw_obj.items
+    weights_loads = loads_raw_obj.misses
+    items_sizes = sizes_raw_obj.items
+    weights_sizes = sizes_raw_obj.sizes
+    items_stores = stores_raw_obj.items
+    weights_stores = stores_raw_obj.misses
+
+    max_loads = 0
+    max_stores = 0
+    totv_loads = 0
+    totv_stores = 0
+    tot_size = 0
+
+    # build object store, not assuming items are sorted across loads, stores, sizes
+    # i.e. items_loads[i] doesn't necessarily correspond to items_sizes[i]
+    # using items in loads data as key across sizes and stores
+    for i in range(len(items_loads)):
+        callstack = items_loads[i]
+        loads = int(float(weights_loads[i]))
+        stores = 0
+        size = 0
+        try:
+           idx = items_sizes.index(items_loads[i])
+           size = int(float(weights_sizes[idx]))
+        except:
+           size = 0
+        if stores_raw_obj.file_handler:
+           try:
+              idx = items_stores.index(items_loads[i])
+              stores = int(float(weights_stores[idx]))
+           except:
+              stores = 0
+        if not callstack == "Unresolved" and callstack.find("Memory object referenced by sampled address") == -1:
+           if (loads > 0 or stores > 0) and size > 0:
+               if loads > max_loads:
+                  max_loads = loads
+               if stores > max_stores:
+                  max_stores = stores
+               totv_loads += loads
+               totv_stores += stores
+               tot_size += size
+
+               objects.append(MemoryObject(callstack, loads, stores, size, pagesize)
+)
+           else:
+               useless.append(MemoryObject(callstack, loads, stores, size, pagesize)
+)
+        else:
+            ignored.append(MemoryObject(callstack, loads, stores, size, pagesize))
+
+    return objects, ignored, useless
+
+
 def pipeline(args):
     parser = Parser(args)
-    parser.parse()
-    
-    Builder.pagesize = text2bytes(args.page)
-    objects, ignored, useless = Builder.build(parser.loads_raw_obj, parser.stores_raw_obj, parser.sizes_raw_obj)
+    parser.parseInputFiles()
+
+    pagesize = text2bytes(args.page)
+    objects, ignored, useless = build_objects(parser.loads_raw_obj, parser.stores_raw_obj, parser.sizes_raw_obj, pagesize)
 
     mem_systems = parser.mem_systems
 
-    engine = Engine(objects, mem_systems, args.algo, args.metric, args.worst)
-    distribution = engine.execute()
+    engine = Engine(mem_systems, args.algo, args.metric, args.worst)
+    distribution = engine.distribute_objects(objects)
 
     if args.allocs_info:
-        allocs_info = parseAllocInfoFile(args.allocs_info)
         process = 10
         ca_objs = None
-        fit_extra_objects(distribution, mem_systems, allocs_info, 1, process, ca_objs)
+        fit_extra_objects(distribution, mem_systems, parser.allocs_info, 1, process, ca_objs)
 
         if not args.disable_bw_aware:
-            bw_aware_replacement(distribution, mem_systems, allocs_info)
+            bw_aware_replacement(distribution, mem_systems, parser.allocs_info)
 
-    if args.out:
-        writer = FileWriter(args)
-    else:
-        writer = StdoutWriter(args)
-   
-    writer.write(distribution, mem_systems)
+    write_result(args, distribution, mem_systems, useless)
 
 
 def main():
@@ -71,9 +121,10 @@ def main():
     if args.algo not in ("greedy", "precise") and not args.algo.isdigit():
         print("Algorithm", args.algo, "not supported")
         sys.exit(1)
-    if args.algo.isdigit() and len(systems) > 2:
-        print("Algorithm", args.algo, "only supported with 2 memory subsystems;", len(systems), "given")
-        sys.exit(1)
+    # TODO: is the following check necessary?
+    #if args.algo.isdigit() and len(systems) > 2:
+    #    print("Algorithm", args.algo, "only supported with 2 memory subsystems;", len(systems), "given")
+    #    sys.exit(1)
     if not args.disable_bw_aware and not args.allocs_info:
         print('The bw-aware placement requires allocs-info data')
         sys.exit(1)

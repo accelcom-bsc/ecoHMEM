@@ -4,15 +4,15 @@ import math
 class RawObject:
     file_handler = None
     items = []
-    misses = [] 
+    misses = []
     sizes = []
 
     def __init__(self, file_handler=None, items=[], weights=[], isSize=False):
         self.file_handler = file_handler
-        self.items = items 
+        self.items = items
         if isSize:
             self.sizes = weights
-        else:    
+        else:
             self.misses = weights
 
 
