@@ -49,7 +49,7 @@ Since there are several parameters and variables that are used in more than one 
 - **ECOHMEM\_ADVISOR\_OUTPUT\_FILE**: path of the output file that will contain the memory object distribution.
 - **ECOHMEM\_FLEXMALLOC\_FALLBACK\_ALLOCATOR**: name of the flexmalloc allocator that will be used when the rest of allocators are full.
 - **ECOHMEM\_FLEXMALLOC\_MINSIZE\_THRESHOLD\_ALLOCATOR**: name of the flexmalloc allocator that will be used when the size of the allocation is lower than the threshold.
-- **ECOHMEM\_FLEXMALLOC\_MINSIZE\_THRESHOLD\**: threshold (in number of bytes) for allocations to be considered by flexmalloc.
+- **ECOHMEM\_FLEXMALLOC\_MINSIZE\_THRESHOLD**: threshold (in number of bytes) for allocations to be considered by flexmalloc.
 - **ECOHMEM\_FLEXMALLOC\_MEM\_CONFIG**: path of the Flexmalloc configuration file.
 - **ECOHMEM\_LOAD\_FLEXMALLOC\_SCRIPT**: path of the script that will be used to load Flexmalloc.
 - **ECOHMEM\_APP\_BINARY**: path of your application program.
@@ -204,6 +204,6 @@ The full GPLv2 license is available in the LICENSE file.
 
 Accelerators and Communications For HPC Group (AccelCom)
 
-Department of Computer Science (SC)
+Department of Computer Science (CS)
 
 Barcelona Supercomputing Center (BSC)
