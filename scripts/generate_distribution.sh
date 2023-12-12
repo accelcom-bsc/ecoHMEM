@@ -5,7 +5,9 @@ if [[ -z $ECOHMEM_HOME ]]; then
     exit 1
 fi
 
-source "$ECOHMEM_HOME/scripts/utils.src"
+this_dir=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")
+source "$this_dir/utils.src"
+
 
 arg_advisor_extra_args=()
 

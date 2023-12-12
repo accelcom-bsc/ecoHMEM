@@ -1,6 +1,8 @@
 #!/bin/bash
 
-source "$ECOHMEM_HOME/scripts/utils.src"
+this_dir=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")
+source "$this_dir/utils.src"
+
 
 if [[ $# -lt 2 ]]; then
     err_msg "Error: expected at least 2 params, output dir and xml config file path"
