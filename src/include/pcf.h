@@ -441,15 +441,6 @@ inline void pcf_reader::parse()
                 }
             }
         } else if ( x3::phrase_parse(iter, enditer, client::parser::semantics, x3::space, semas) ) {
-            //std::cerr << "Semantics succeeded\n";
-            //std::cerr << "  str size " << str.size() << "\n";
-            //std::cerr << "  consumed " << iter - str.begin() << "\n";
-            //for (const auto& [level, func] : semas.funcs) {
-            //    std::cerr << level << "," << func << "|" << std::endl;
-            //}
-            //for (const auto& [level, func, param, values] : semas.params) {
-            //    std::cerr << level << "," << func << "," << param << "|" << values << "|" << std::endl;
-            //}
 	    // TODO
         } else {
             std::cerr << "Parsing failed" << std::endl;

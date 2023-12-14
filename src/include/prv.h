@@ -238,23 +238,37 @@ struct listener {
     virtual void handle_end() {}
 };
 
-struct event_merger: public listener {
+
+// This merger expects all events to be time-sorted
+struct event_merger_sorted: public listener {
     virtual void handle_header(const header& hdr) {
         for (auto& l : listeners_) l->handle_header(hdr);
     }
 
     virtual void handle_event(const event& ev) {
-        client::ast::event* prev = get_prev_event(ev);
-        if (prev != nullptr) {
-            if (prev->time == ev.time) {
-                assert(prev->cpu == ev.cpu);
-                prev->events.insert(prev->events.end(), ev.events.begin(), ev.events.end());
+        if (cur_time_) {
+            if (*cur_time_ == ev.time) {
+                client::ast::event* prev = get_prev_event(ev);
+                if (prev != nullptr) { // app,task,thread already seen, merge events
+                    assert(prev->cpu == ev.cpu);
+                    prev->events.insert(prev->events.end(), ev.events.begin(), ev.events.end());
+                } else { // app,task,thread not seen for current timestamp, add to list
+                    add_prev_event(ev);
+                }
             } else {
-                for (auto& l : listeners_) l->handle_event(*prev);
-                set_prev_event(ev);
+                assert(*cur_time_ < ev.time);
+                // we got a new timestamp -> prev events are complete and can be forwarded
+                for (const auto& p : prev_events_) {
+                    for (auto& l : listeners_) l->handle_event(p.second);
+                }
+                // clean up and setup for the new timestamp
+                prev_events_.clear();
+                cur_time_ = ev.time;
+                add_prev_event(ev);
             }
         } else {
-            set_prev_event(ev);
+            cur_time_ = ev.time;
+            add_prev_event(ev);
         }
     }
 
@@ -301,7 +315,7 @@ private:
             | (ev.thread & th_max);
     }
 
-    inline void set_prev_event(client::ast::event ev) {
+    inline void add_prev_event(client::ast::event ev) {
         key_t key = make_key(ev);
         prev_events_[key] = ev;
     }
@@ -313,10 +327,12 @@ private:
         else return &(it->second);
     }
 
+    std::optional<unsigned long> cur_time_;
     std::unordered_map<key_t, client::ast::event> prev_events_;
 
     std::vector<listener*>  listeners_;
 };
+
 
 struct trace_reader {
     trace_reader(std::string fname)

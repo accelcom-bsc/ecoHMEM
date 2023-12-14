@@ -126,19 +126,24 @@ std::ostream& warn(const prv::event& e) {
 struct listener: public prv::listener {
 
     virtual void handle_event(const prv::event& e) {
+        assert(prev_time <= e.time);
+        prev_time = e.time;
+
         auto dme = parse_dynmem_ev(e);
         if (dme.func) {
-            auto key = std::make_tuple(e.app,e.task);
-            auto it = pending.find(key);
+            auto key = std::make_tuple(e.app, e.task);
+            auto th_key = std::make_tuple(e.app, e.task, e.thread);
+            auto it = pending.find(th_key);
             if (dme.func == END) {
                 if (it == pending.end()) warn(e) << "unmatched END func event" << std::endl;
                 else {
-                    auto beg_dme = it->second;
+                    const auto& beg_dme = it->second;
                     switch (*(beg_dme.func)) {
                         case MALLOC:
                         case CALLOC:
                         case POSIX_MEMALIGN: {
                             if (beg_dme.out_ptr) warn(e) << dynmem_func_name(*beg_dme.func) << ": prev already has an out_ptr" << std::endl;
+
                             if (! dme.out_ptr) warn(e) << dynmem_func_name(*beg_dme.func) << ": end is missing out_ptr" << std::endl;
                             else {
                                 alloc_t* palloc = new alloc_t();
@@ -238,7 +243,7 @@ struct listener: public prv::listener {
                 }
             } else {
                 if (it != pending.end()) warn(e) << "func event not ended" << std::endl;
-                pending[key] = dme;
+                pending[th_key] = dme;
             }
         }
     }
@@ -269,9 +274,10 @@ private:
         return ret;
     }
 
+    size_t prev_time = 0;
 
 public:
-    std::unordered_map<std::tuple<unsigned,unsigned>, dynmem_ev_t> pending;
+    std::unordered_map<std::tuple<unsigned,unsigned,unsigned>, dynmem_ev_t> pending;
     std::unordered_map<std::tuple<unsigned,unsigned>, dynmem_data_t> dm_data;
 };
 
@@ -284,7 +290,7 @@ int main(int argc, char** argv) {
 
     listener l;
 
-    prv::event_merger emr;
+    prv::event_merger_sorted emr;
     emr.add_listener(&l);
     r.add_listener(&emr);
 
