@@ -1,23 +1,7 @@
 import math
 
-
-class RawObject:
-    file_handler = None
-    items = []
-    misses = []
-    sizes = []
-
-    def __init__(self, file_handler=None, items=[], weights=[], isSize=False):
-        self.file_handler = file_handler
-        self.items = items
-        if isSize:
-            self.sizes = weights
-        else:
-            self.misses = weights
-
-
 class MemoryObject:
-    def __init__(self, callstack, loads, stores, size, pagesize, ecu=-1, id=-1, value
+    def __init__(self, callstack, loads, stores, size, pagesize, ecu=-1, oid=-1, value
 =-1):
         self.callstack = callstack
         self.loads = loads
@@ -25,7 +9,7 @@ class MemoryObject:
         self.realsize = size
         self.size = int(math.ceil(size/float(pagesize)))
         self.ecu = ecu # EVOP specific,
-        self.id = id # used as unique object ID
+        self.id = oid # used as unique object ID
         self.value = value
         self.alloc_time = 0
         self.free_time = 0
@@ -40,8 +24,7 @@ class MemoryObject:
     def comment(self):
         if self.callstack.find (":") == - 1 and self.callstack.find("!") == -1:
             return "# Static "
-        else:
-            return ""
+        return ""
 
 
 class MemorySystem:

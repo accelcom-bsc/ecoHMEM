@@ -1,12 +1,12 @@
 import numpy as np
 
 class Engine:
-
     def __init__(self, mem_systems, algorithm, metric, worst):
         self.mem_systems = mem_systems
         self.algorithm = algorithm
         self.metric = metric
         self.worst = worst
+        self.objects = None
 
     def distribute_objects(self, objects):
         self.objects = objects

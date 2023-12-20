@@ -3,8 +3,8 @@
 import sys
 import argparse
 
-from core.core_types import *
-from core.parser import Parser
+from core.core_types import MemoryObject
+from core.parser import parseParamedirCSV, parseAllocInfoFile, parseConfig
 from core.engine import Engine, fit_extra_objects
 
 from core.writer import write_result
@@ -13,57 +13,36 @@ from misc.bw_aware import bw_aware_replacement
 from misc.utils import text2bytes
 
 
-def build_objects(loads_raw_obj, stores_raw_obj, sizes_raw_obj, pagesize):
+def merge_objects_data(loads_data, stores_data, size_data, pagesize, remove_if_size_zero=True):
     objects = []
     ignored = []
     useless = []
 
-    items_loads = loads_raw_obj.items
-    weights_loads = loads_raw_obj.misses
-    items_sizes = sizes_raw_obj.items
-    weights_sizes = sizes_raw_obj.sizes
-    items_stores = stores_raw_obj.items
-    weights_stores = stores_raw_obj.misses
+    #max_loads = 0
+    #max_stores = 0
+    #totv_loads = 0
+    #totv_stores = 0
+    #tot_size = 0
+    for callstack in loads_data.keys():
+        loads = int(float(loads_data[callstack]))
+        size = int(float(size_data.get(callstack, '0')))
+        if remove_if_size_zero and size == 0:
+            continue
+        stores = int(float(stores_data.get(callstack, '0'))) if stores_data else 0
+        if not callstack == "Unresolved" and "Memory object referenced by sampled address" not in callstack:
+            if (loads > 0 or stores > 0) and size > 0:
+               #if loads > max_loads:
+               #   max_loads = loads
+               #if stores > max_stores:
+               #   max_stores = stores
+               #totv_loads += loads
+               #totv_stores += stores
+               #tot_size += size
 
-    max_loads = 0
-    max_stores = 0
-    totv_loads = 0
-    totv_stores = 0
-    tot_size = 0
-
-    # build object store, not assuming items are sorted across loads, stores, sizes
-    # i.e. items_loads[i] doesn't necessarily correspond to items_sizes[i]
-    # using items in loads data as key across sizes and stores
-    for i in range(len(items_loads)):
-        callstack = items_loads[i]
-        loads = int(float(weights_loads[i]))
-        stores = 0
-        size = 0
-        try:
-           idx = items_sizes.index(items_loads[i])
-           size = int(float(weights_sizes[idx]))
-        except:
-           size = 0
-        if stores_raw_obj.file_handler:
-           try:
-              idx = items_stores.index(items_loads[i])
-              stores = int(float(weights_stores[idx]))
-           except:
-              stores = 0
-        if not callstack == "Unresolved" and callstack.find("Memory object referenced by sampled address") == -1:
-           if (loads > 0 or stores > 0) and size > 0:
-               if loads > max_loads:
-                  max_loads = loads
-               if stores > max_stores:
-                  max_stores = stores
-               totv_loads += loads
-               totv_stores += stores
-               tot_size += size
-
-               objects.append(MemoryObject(callstack, loads, stores, size, pagesize)
+                objects.append(MemoryObject(callstack, loads, stores, size, pagesize)
 )
-           else:
-               useless.append(MemoryObject(callstack, loads, stores, size, pagesize)
+            else:
+                useless.append(MemoryObject(callstack, loads, stores, size, pagesize)
 )
         else:
             ignored.append(MemoryObject(callstack, loads, stores, size, pagesize))
@@ -71,14 +50,17 @@ def build_objects(loads_raw_obj, stores_raw_obj, sizes_raw_obj, pagesize):
     return objects, ignored, useless
 
 
+COMPARE_OLD_VERSION = True
+
 def pipeline(args):
-    parser = Parser(args)
-    parser.parseInputFiles()
-
     pagesize = text2bytes(args.page)
-    objects, ignored, useless = build_objects(parser.loads_raw_obj, parser.stores_raw_obj, parser.sizes_raw_obj, pagesize)
 
-    mem_systems = parser.mem_systems
+    loads_data = parseParamedirCSV(args.loads, args.rank, args.rank_statistics)
+    size_data = parseParamedirCSV(args.sizes, args.rank, args.rank_statistics)
+    stores_data = parseParamedirCSV(args.stores, args.rank, args.rank_statistics) if args.stores else None
+    objects, ignored, useless = merge_objects_data(loads_data, stores_data, size_data, pagesize)
+
+    mem_systems = parseConfig(args.mem_config, pagesize, args.rank_statistics, args.num_ranks)
 
     engine = Engine(mem_systems, args.algo, args.metric, args.worst)
     distribution = engine.distribute_objects(objects)
@@ -86,10 +68,32 @@ def pipeline(args):
     if args.allocs_info:
         process = 10
         ca_objs = None
-        fit_extra_objects(distribution, mem_systems, parser.allocs_info, 1, process, ca_objs)
+        ai_data = parseAllocInfoFile(args.allocs_info)
+        fit_extra_objects(distribution, mem_systems, ai_data, 1, process, ca_objs)
 
         if not args.disable_bw_aware:
-            bw_aware_replacement(distribution, mem_systems, parser.allocs_info)
+            bw_aware_replacement(distribution, mem_systems, ai_data)
+
+
+    if COMPARE_OLD_VERSION:
+        from misc.ancient import Parser, build_objects
+        args.loads.seek(0)
+        if args.stores:
+            args.stores.seek(0)
+        args.sizes.seek(0)
+        parser = Parser(args)
+        parser.parseInputFiles()
+        objects_old, ignored_old, useless_old = build_objects(parser.loads_raw_obj, parser.stores_raw_obj, parser.sizes_raw_obj, pagesize)
+        assert objects == objects_old
+        assert ignored == ignored_old
+        assert useless == useless_old
+
+        assert parser.allocs_info == ai_data
+
+        mem_systems_old = parser.mem_systems
+        assert mem_systems == mem_systems_old
+        print('DBG compare old version: all seems to be equal', file=sys.stderr)
+
 
     write_result(args, distribution, mem_systems, useless)
 
@@ -97,12 +101,12 @@ def pipeline(args):
 def main():
     parser = argparse.ArgumentParser(description='hmem_advisor, a memory object distribution tool for heterogeneous memory systems')
     #parser.add_argument('mem_config', type=str)
-    #parser.add_argument('accesses_loads', type=argparse.FileType('rU'))
-    #parser.add_argument('sizes', type=argparse.FileType('rU'))
+    #parser.add_argument('accesses_loads', type=argparse.FileType('r'))
+    #parser.add_argument('sizes', type=argparse.FileType('r'))
     parser.add_argument('--mem-config', type=str, required=True)
-    parser.add_argument('--loads', type=argparse.FileType('rU'), required=True)
-    parser.add_argument('--sizes', type=argparse.FileType('rU'), required=True)
-    parser.add_argument('--stores', type=argparse.FileType('rU'))
+    parser.add_argument('--loads', type=argparse.FileType('r'), required=True)
+    parser.add_argument('--sizes', type=argparse.FileType('r'), required=True)
+    parser.add_argument('--stores', type=argparse.FileType('r'))
     parser.add_argument('--worst', action='store_true', default=False)
     parser.add_argument('--algo', type=str, default='greedy')
     parser.add_argument('--metric', type=str, default='latencies', choices=('latencies','misses'))

@@ -21,8 +21,12 @@ def bw_aware_replacement(distribution, systems, allocs_info):
             tagged_objects[level][item.id] = MemoryObject(item.callstack, item.loads, item.stores, item.realsize, item.ecu, item.id, item.value[0])
             dbg(item.id, item.callstack, item.value)
 
-    count = 0
+    allocs = []
     for e in allocs_info['allocs']:
+        allocs.append(e.copy())
+
+    count = 0
+    for e in allocs:
         found = 0
         for level in range(len(systems)):
             if e['obj_id'] in tagged_objects[level]:
@@ -43,7 +47,7 @@ def bw_aware_replacement(distribution, systems, allocs_info):
 
     obj_instances = {}
 
-    for e in allocs_info['allocs']:
+    for e in allocs:
         if e['level'] == 0 or e['level'] == 1:
             if e['obj_id'] not in obj_instances:
                obj_instances[e['obj_id']] = {'total_inst':1, 'inst':1, 'end':e['free_time']}
@@ -63,7 +67,7 @@ def bw_aware_replacement(distribution, systems, allocs_info):
     e1 = {}
 
     new_info = []
-    for e in allocs_info['allocs']:
+    for e in allocs:
         e['event'] = 1
         e['inst'] = 0
         e['event_time'] = e['alloc_time']
@@ -89,7 +93,7 @@ def bw_aware_replacement(distribution, systems, allocs_info):
 
 
     for e in new_info:
-        allocs_info['allocs'].append(e)
+        allocs.append(e)
 
     dram_size = 0
     pmem_size = 0
@@ -123,7 +127,7 @@ def bw_aware_replacement(distribution, systems, allocs_info):
     pmem_load_bw  = 0
     pmem_store_bw = 0
 
-    for e in sorted(allocs_info['allocs'], key=lambda x: x['event_time']):
+    for e in sorted(allocs, key=lambda x: x['event_time']):
         cur_time = e['event_time']
         oid = e['obj_id']
 
